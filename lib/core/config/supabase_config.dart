@@ -8,13 +8,14 @@ class SupabaseConfig {
 
   static const String url = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://REPLACE_WITH_PROJECT_REF.supabase.co',
+    defaultValue: 'https://fqdlpuvuyfvrceufwfbl.supabase.co',
   );
 
   /// Publishable (or legacy anon) API key.
   static const String publishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
-    defaultValue: 'REPLACE_WITH_PUBLISHABLE_KEY',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZGxwdXZ1eWZ2cmNldWZ3ZmJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxOTY4NDcsImV4cCI6MjA5ODc3Mjg0N30.540OaidZQ8gnT0wbKUDsLL_dQ-99ABpWRPfuiDDOpK8',
   );
 
   /// Google OAuth *web* client ID — required by Supabase to validate the

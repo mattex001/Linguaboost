@@ -91,7 +91,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      await ref.read(authServiceProvider).sendOtp(widget.email);
+      await ref.read(authServiceProvider).resendSignupOtp(widget.email);
       if (!mounted) return;
       // Reset boxes
       for (final c in _controllers) { c.clear(); }
@@ -113,7 +113,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final result = await ref.read(authServiceProvider).signInWithEmailOtp(
+      final result = await ref.read(authServiceProvider).verifySignupOtp(
         email: widget.email,
         otp: _otp,
       );

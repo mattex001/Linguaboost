@@ -12,10 +12,11 @@ class AuthService {
     SupabaseClient? client,
     GoogleSignIn? googleSignIn,
     UserRepository? userRepository,
-  })  : _client = client ?? Supabase.instance.client,
-        _googleSignIn = googleSignIn ??
-            GoogleSignIn(serverClientId: SupabaseConfig.googleWebClientId),
-        _userRepository = userRepository ?? UserRepository();
+  }) : _client = client ?? Supabase.instance.client,
+       _googleSignIn =
+           googleSignIn ??
+           GoogleSignIn(serverClientId: SupabaseConfig.googleWebClientId),
+       _userRepository = userRepository ?? UserRepository();
 
   final SupabaseClient _client;
   final GoogleSignIn _googleSignIn;
@@ -25,25 +26,70 @@ class AuthService {
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
   bool get isSignedIn => _client.auth.currentSession != null;
 
-  // ── Send OTP ───────────────────────────────────────────────────────────────
-  // Supabase Auth emails a 6-digit code (Email OTP must be enabled and the
-  // template must contain {{ .Token }}). Throws [AuthException] on failure.
+  // ── Email + Password ──────────────────────────────────────────────────────
 
-  Future<void> sendOtp(String email) => _client.auth.signInWithOtp(
-        email: email.trim(),
-        shouldCreateUser: true,
-      );
+  Future<({UserModel user, bool isNewUser})> signInWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    final normalizedEmail = email.trim();
+    final response = await _client.auth.signInWithPassword(
+      email: normalizedEmail,
+      password: password,
+    );
 
-  // ── Verify OTP ─────────────────────────────────────────────────────────────
-  // Validates the OTP, signs the user in, and returns the profile row plus
-  // whether this account still needs onboarding.
+    final authUser = response.user;
+    if (authUser == null) {
+      throw const AuthException('Login failed');
+    }
 
-  Future<({UserModel user, bool isNewUser})> signInWithEmailOtp({
+    return _postSignIn(authUser, email: authUser.email ?? normalizedEmail);
+  }
+
+  /// Creates the account. When email confirmation is required (the normal
+  /// first-time path), no session is returned yet — the caller must send the
+  /// user to the OTP screen to verify the 6-digit code from the confirmation
+  /// email ([verifySignupOtp]).
+  Future<({UserModel? user, bool isNewUser, bool needsVerification})>
+      signUpWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    final normalizedEmail = email.trim();
+    final response = await _client.auth.signUp(
+      email: normalizedEmail,
+      password: password,
+    );
+
+    final authUser = response.user;
+    if (authUser == null) {
+      throw const AuthException('Sign up failed');
+    }
+
+    if (response.session == null) {
+      // Email confirmation pending — Supabase has emailed the OTP code.
+      return (user: null, isNewUser: true, needsVerification: true);
+    }
+
+    final result =
+        await _postSignIn(authUser, email: authUser.email ?? normalizedEmail);
+    return (
+      user: result.user,
+      isNewUser: result.isNewUser,
+      needsVerification: false,
+    );
+  }
+
+  // ── Signup OTP verification ────────────────────────────────────────────────
+  // Confirms a new account with the 6-digit code from the confirmation email
+  // (the template must contain {{ .Token }}). Returns a signed-in session.
+
+  Future<({UserModel user, bool isNewUser})> verifySignupOtp({
     required String email,
     required String otp,
   }) async {
     final response = await _client.auth.verifyOTP(
-      type: OtpType.email,
+      type: OtpType.signup,
       email: email.trim(),
       token: otp.trim(),
     );
@@ -55,6 +101,10 @@ class AuthService {
 
     return _postSignIn(authUser, email: email.trim());
   }
+
+  /// Re-sends the signup confirmation code.
+  Future<void> resendSignupOtp(String email) =>
+      _client.auth.resend(type: OtpType.signup, email: email.trim());
 
   // ── Google Sign-In ─────────────────────────────────────────────────────────
 
@@ -91,7 +141,8 @@ class AuthService {
 
     // Profile row is auto-created by the on_auth_user_created trigger; it may
     // lag the very first sign-in by a moment.
-    final profile = await _userRepository.getUser(authUser.id) ??
+    final profile =
+        await _userRepository.getUser(authUser.id) ??
         UserModel(id: authUser.id, email: email);
 
     final isNewUser = profile.onboardingStep == 0;

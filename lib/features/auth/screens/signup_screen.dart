@@ -21,40 +21,70 @@ class SignupScreen extends ConsumerStatefulWidget {
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _emailValid = false;
+  bool _passwordValid = false;
+  bool _passwordObscured = true;
   bool _loading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _emailController.addListener(_onEmailChanged);
+    _emailController.addListener(_onFormChanged);
+    _passwordController.addListener(_onFormChanged);
   }
 
-  void _onEmailChanged() {
-    final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-        .hasMatch(_emailController.text.trim());
-    if (valid != _emailValid) setState(() => _emailValid = valid);
+  bool get _canSubmit => _emailValid && _passwordValid && !_loading;
+
+  void _onFormChanged() {
+    final emailValid = RegExp(
+      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+    ).hasMatch(_emailController.text.trim());
+    final passwordValid = _passwordController.text.length >= 8;
+    if (emailValid != _emailValid || passwordValid != _passwordValid) {
+      setState(() {
+        _emailValid = emailValid;
+        _passwordValid = passwordValid;
+      });
+    }
   }
 
   @override
   void dispose() {
     _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _continue() async {
-    if (!_emailValid || _loading) return;
-    setState(() { _loading = true; _error = null; });
+    if (!_canSubmit) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      await ref.read(authServiceProvider).sendOtp(_emailController.text.trim());
+      final result = await ref
+          .read(authServiceProvider)
+          .signUpWithEmailPassword(
+            email: _emailController.text,
+            password: _passwordController.text,
+          );
       if (!mounted) return;
-      context.push(AppRoutes.authOtp, extra: _emailController.text.trim());
+      if (result.needsVerification) {
+        // First-time signup: verify the emailed 6-digit code
+        context.push(AppRoutes.authOtp, extra: _emailController.text.trim());
+      } else if (result.isNewUser) {
+        context.go(AppRoutes.personalization);
+      } else {
+        final complete = LocalStorageService.instance.onboardingComplete;
+        context.go(complete ? AppRoutes.dashboard : AppRoutes.personalization);
+      }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
-      setState(() => _error = 'Failed to send code. Check your connection.');
+      setState(() => _error = 'Sign up failed. Check your details.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -62,7 +92,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Future<void> _signInWithGoogle() async {
     if (_loading) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
       final result = await ref.read(authServiceProvider).signInWithGoogle();
@@ -101,7 +134,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 8),
                   child: GestureDetector(
-                    onTap: () { if (context.canPop()) context.pop(); },
+                    onTap: () {
+                      if (context.canPop()) context.pop();
+                    },
                     behavior: HitTestBehavior.opaque,
                     child: SizedBox(
                       width: 44,
@@ -120,14 +155,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 const SizedBox(height: 8),
 
                 Text(
-                  'Sign up or Login',
-                  style: GoogleFonts.googleSans(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                    height: 25 / 24,
-                  ),
-                )
+                      'Create your account',
+                      style: GoogleFonts.googleSans(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary(context),
+                        height: 25 / 24,
+                      ),
+                    )
                     .animate()
                     .fadeIn(duration: 350.ms)
                     .slideY(begin: 0.05, end: 0, duration: 350.ms),
@@ -135,7 +170,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 const SizedBox(height: 4),
 
                 Text(
-                  'Choose an option to access your account',
+                  'Start saving phrases with your own login',
                   style: GoogleFonts.googleSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
@@ -183,7 +218,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 const SizedBox(height: 25),
 
                 Text(
-                  'We will send a 6-digit code to complete your sign up',
+                  'Use your email and create a password to continue',
                   style: GoogleFonts.googleSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
@@ -195,6 +230,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 const SizedBox(height: 25),
 
                 _EmailInput(controller: _emailController),
+
+                const SizedBox(height: 14),
+
+                _PasswordInput(
+                  controller: _passwordController,
+                  obscureText: _passwordObscured,
+                  onToggleVisibility: () {
+                    setState(() => _passwordObscured = !_passwordObscured);
+                  },
+                  onSubmitted: _continue,
+                ),
 
                 if (_error != null) ...[
                   const SizedBox(height: 12),
@@ -210,8 +256,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 const SizedBox(height: 25),
 
                 _AuthButton(
-                  label: 'Continue',
-                  enabled: _emailValid && !_loading,
+                  label: 'Create account',
+                  enabled: _canSubmit,
                   isLoading: _loading,
                   onTap: _continue,
                 ),
@@ -326,6 +372,8 @@ class _EmailInput extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.next,
+      autofillHints: const [AutofillHints.email],
       autocorrect: false,
       style: GoogleFonts.googleSans(
         fontSize: 16,
@@ -339,7 +387,78 @@ class _EmailInput extends StatelessWidget {
           color: AppColors.textTertiary(context),
         ),
         filled: false,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.borderDisabled(context)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.brandPrimary, width: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Password input ───────────────────────────────────────────────────────────
+
+class _PasswordInput extends StatelessWidget {
+  final TextEditingController controller;
+  final bool obscureText;
+  final VoidCallback onToggleVisibility;
+  final VoidCallback onSubmitted;
+
+  const _PasswordInput({
+    required this.controller,
+    required this.obscureText,
+    required this.onToggleVisibility,
+    required this.onSubmitted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      textInputAction: TextInputAction.done,
+      autofillHints: const [AutofillHints.newPassword],
+      autocorrect: false,
+      enableSuggestions: false,
+      onSubmitted: (_) => onSubmitted(),
+      style: GoogleFonts.googleSans(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary(context),
+      ),
+      decoration: InputDecoration(
+        labelText: 'Password',
+        labelStyle: GoogleFonts.googleSans(
+          fontSize: 12,
+          color: AppColors.textTertiary(context),
+        ),
+        helperText: '8 characters minimum',
+        helperStyle: GoogleFonts.googleSans(
+          fontSize: 12,
+          color: AppColors.textTertiary(context),
+        ),
+        filled: false,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        suffixIcon: IconButton(
+          tooltip: obscureText ? 'Show password' : 'Hide password',
+          onPressed: onToggleVisibility,
+          icon: Icon(
+            obscureText ? CoolIcons.show : CoolIcons.hide,
+            size: 20,
+            color: AppColors.textTertiary(context),
+          ),
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: AppColors.borderDisabled(context)),
