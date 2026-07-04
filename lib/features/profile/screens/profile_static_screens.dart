@@ -492,17 +492,17 @@ class PrivacyPolicyScreen extends StatelessWidget {
           _PolicySection(
             title: '2. How we use your information',
             body:
-                'Your information is used solely to personalise your learning experience, deliver daily word reminders, and maintain your account. We do not use your data for advertising or share it with third-party advertisers.',
+                'Your information is used solely to personalise your learning experience, deliver daily phrase reminders, and maintain your account. We do not use your data for advertising or share it with third-party advertisers.',
           ),
           _PolicySection(
             title: '3. Data storage',
             body:
-                'Your data is stored securely in Google Firebase (Firestore and Firebase Authentication). Firebase complies with GDPR, CCPA, and other applicable data protection regulations.',
+                'Your data is stored securely in Supabase for authentication, phrase storage, review history, and account preferences. Supabase complies with GDPR, CCPA, and other applicable data protection regulations.',
           ),
           _PolicySection(
             title: '4. Third-party services',
             body:
-                'We use RevenueCat to manage subscriptions. RevenueCat may collect transaction information as described in their privacy policy. We use Firebase Cloud Messaging for push notifications.',
+                'We use RevenueCat to manage subscriptions. RevenueCat may collect transaction information as described in their privacy policy. We use platform notification services to deliver reminder notifications.',
           ),
           _PolicySection(
             title: '5. Data retention',

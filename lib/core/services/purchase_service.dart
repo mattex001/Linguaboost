@@ -26,8 +26,8 @@ class PurchaseService {
 
   // ── Configuration ──────────────────────────────────────────────────────────
 
-  /// Call once after Firebase init, before runApp.
-  /// [userId] is optional — pass the Firebase UID if already signed in.
+  /// Call once after Supabase init, before runApp.
+  /// [userId] is optional — pass the Supabase user id if already signed in.
   Future<void> configure({String? userId}) async {
     final apiKey = Platform.isIOS ? _rcApiKeyIos : _rcApiKeyAndroid;
     final config = PurchasesConfiguration(apiKey)..appUserID = userId;
@@ -41,7 +41,7 @@ class PurchaseService {
 
   // ── Identity ───────────────────────────────────────────────────────────────
 
-  /// Link purchases to the Firebase user after sign-in.
+  /// Link purchases to the signed-in app user after sign-in.
   Future<void> logIn(String uid) async {
     await Purchases.logIn(uid);
   }

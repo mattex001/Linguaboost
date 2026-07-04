@@ -50,8 +50,8 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<!-- Required for Google Sign-In on iOS.
-	     Replace REVERSED_CLIENT_ID with the value from GoogleService-Info.plist
-	     after enabling Google Sign-In in the Firebase Console. -->
+	     Configure this with the reversed iOS client ID from your Google OAuth
+	     client in the Google Cloud Console. -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
