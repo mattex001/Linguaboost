@@ -69,6 +69,20 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   void _onChanged(int index, String value) {
     // Clear error as soon as the user edits
     if (_error != null) setState(() => _error = null);
+
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 1) {
+      // Pasted or autofilled code — distribute across all boxes.
+      for (var i = 0; i < 6; i++) {
+        _controllers[i].text = i < digits.length ? digits[i] : '';
+      }
+      final lastFilled = (digits.length.clamp(1, 6)) - 1;
+      _focusNodes[lastFilled].requestFocus();
+      setState(() {});
+      if (digits.length >= 6) _verify();
+      return;
+    }
+
     if (value.length == 1 && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
@@ -400,8 +414,13 @@ class _OtpBox extends StatelessWidget {
         focusNode: focusNode,
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
-        maxLength: 1,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        autofillHints: const [AutofillHints.oneTimeCode],
+        // Length 6 (not 1) so a pasted code reaches onChanged intact,
+        // where it is distributed across the boxes.
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(6),
+        ],
         onChanged: onChanged,
         style: GoogleFonts.googleSans(
           fontSize: 20,
