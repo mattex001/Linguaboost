@@ -136,8 +136,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   String _friendlyOtpError(String? code) {
     switch (code) {
+      // Supabase returns otp_expired for both wrong and stale codes.
       case 'otp_expired':
-        return 'This code has expired. Tap "Resend code" to get a new one.';
+        return 'Incorrect or expired code. Double-check the digits or tap "Resend code".';
       case 'otp_disabled':
         return 'Email codes are temporarily unavailable. Try again later.';
       case 'over_request_rate_limit':
