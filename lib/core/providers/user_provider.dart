@@ -36,3 +36,12 @@ final currentUserProvider = StreamProvider<UserModel?>(
 final userSnapshotProvider = Provider<UserModel?>((ref) {
   return ref.watch(currentUserProvider).asData?.value;
 });
+
+/// The user's current active practicing language code (e.g. 'es'). Null
+/// before onboarding sets one. Phrasebook, Review, and the Home/Profile
+/// stats all scope to this — switching it anywhere (Translate, Phrasebook,
+/// Review all share one switcher) changes what the whole app considers
+/// "current" everywhere at once.
+final activeLanguageCodeProvider = Provider<String?>((ref) {
+  return ref.watch(userSnapshotProvider)?.targetLanguage;
+});

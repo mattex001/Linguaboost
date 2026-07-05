@@ -11,7 +11,9 @@ import '../../../core/providers/user_provider.dart';
 import '../../../core/services/tts_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/glow_mic_button.dart';
+import '../../../shared/widgets/language_switcher_sheet.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
+import '../../phrasebook/widgets/language_switch_action.dart';
 import '../../phrasebook/widgets/phrase_detail_sheet.dart';
 import '../providers/translate_provider.dart';
 import '../repositories/translate_repository.dart';
@@ -166,257 +168,205 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
       backgroundColor: AppColors.backgroundSecondary(context),
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header ──────────────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Translate',
+                    style: GoogleFonts.chauPhilomeneOne(
+                      fontSize: 28,
+                      color: AppColors.textPrimary(context),
+                    ),
+                  ),
+                  LanguagePill(
+                    code: language.code,
+                    onTap: () => showLanguageSwitcherSheet(
+                      context,
+                      currentCode: language.code,
+                      onSelect: (code) =>
+                          switchActiveLanguage(context, ref, code),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Say it the way a local would',
+                style: GoogleFonts.googleSans(
+                  fontSize: 13,
+                  color: AppColors.textTertiary(context),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── Input card ──────────────────────────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundPrimary(context),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: speech.listening
+                        ? AppColors.brandPrimary
+                        : AppColors.borderTertiary(context),
+                    width: speech.listening ? 1.5 : 1,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0A000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Header ──────────────────────────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Translate',
-                          style: GoogleFonts.chauPhilomeneOne(
-                            fontSize: 28,
-                            color: AppColors.textPrimary(context),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.backgroundPrimary(context),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: AppColors.borderSecondary(context),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                language.flag,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                language.label,
-                                style: GoogleFonts.googleSans(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Say it the way a local would',
+                    TextField(
+                      controller: _inputController,
+                      maxLines: 5,
+                      minLines: 3,
+                      maxLength: AppConstants.maxTranslationInputChars,
+                      textCapitalization: TextCapitalization.sentences,
                       style: GoogleFonts.googleSans(
-                        fontSize: 13,
-                        color: AppColors.textTertiary(context),
+                        fontSize: 16,
+                        color: AppColors.textPrimary(context),
+                        height: 1.5,
+                      ),
+                      decoration: InputDecoration(
+                        hintText:
+                            'Type or paste what you need to say in English…',
+                        hintStyle: GoogleFonts.googleSans(
+                          fontSize: 15,
+                          color: AppColors.textTertiary(context),
+                        ),
+                        counterText: '',
+                        border: InputBorder.none,
+                        filled: false,
+                        contentPadding: const EdgeInsets.fromLTRB(
+                          16,
+                          14,
+                          16,
+                          4,
+                        ),
                       ),
                     ),
 
-                    const SizedBox(height: 20),
-
-                    // ── Input card ──────────────────────────────────────────────
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.backgroundPrimary(context),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: speech.listening
-                              ? AppColors.brandPrimary
-                              : AppColors.borderTertiary(context),
-                          width: speech.listening ? 1.5 : 1,
+                    // ── Character counter ─────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${_inputController.text.characters.length}/${AppConstants.maxTranslationInputChars}',
+                          style: GoogleFonts.googleSans(
+                            fontSize: 12,
+                            color: AppColors.textTertiary(context),
+                          ),
                         ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x0A000000),
-                            blurRadius: 6,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: _inputController,
-                            maxLines: 5,
-                            minLines: 3,
-                            maxLength: AppConstants.maxTranslationInputChars,
-                            textCapitalization: TextCapitalization.sentences,
-                            style: GoogleFonts.googleSans(
-                              fontSize: 16,
-                              color: AppColors.textPrimary(context),
-                              height: 1.5,
-                            ),
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Type or paste what you need to say in English…',
-                              hintStyle: GoogleFonts.googleSans(
-                                fontSize: 15,
-                                color: AppColors.textTertiary(context),
-                              ),
-                              counterText: '',
-                              border: InputBorder.none,
-                              filled: false,
-                              contentPadding: const EdgeInsets.fromLTRB(
-                                16,
-                                14,
-                                16,
-                                4,
-                              ),
-                            ),
-                          ),
-
-                          // ── Status row ─────────────────────────────────────────
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                            child: Row(
-                              children: [
-                                if (speech.listening)
-                                  Expanded(
-                                    child:
-                                        Text(
-                                              'Listening…',
-                                              style: GoogleFonts.googleSans(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.brandPrimary,
-                                              ),
-                                            )
-                                            .animate(
-                                              onPlay: (c) =>
-                                                  c.repeat(reverse: true),
-                                            )
-                                            .fadeIn(duration: 600.ms),
-                                  )
-                                else
-                                  Expanded(
-                                    child: Text(
-                                      'Tap the mic to speak',
-                                      style: GoogleFonts.googleSans(
-                                        fontSize: 13,
-                                        color: AppColors.textTertiary(context),
-                                      ),
-                                    ),
-                                  ),
-                                Text(
-                                  '${_inputController.text.characters.length}/${AppConstants.maxTranslationInputChars}',
-                                  style: GoogleFonts.googleSans(
-                                    fontSize: 12,
-                                    color: AppColors.textTertiary(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // ── Mic button ─────────────────────────────────────────
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Center(
-                              child: GlowMicButton(
-                                listening: speech.listening,
-                                onTap: loading ? null : _toggleMic,
-                                size: 56,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        _error!,
-                        style: GoogleFonts.googleSans(
-                          fontSize: 13,
-                          color: AppColors.textDanger(context),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // ── Hint card ───────────────────────────────────────────────
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.brandPrimary.withValues(alpha: 0.07),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Every phrase becomes a lesson',
-                            style: GoogleFonts.googleSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.brandPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Whatever you translate is saved to your phrasebook and '
-                            'scheduled for review — so the sentences you actually '
-                            'need are the ones you remember.',
-                            style: GoogleFonts.googleSans(
-                              fontSize: 13,
-                              color: AppColors.textSecondary(context),
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
 
-            // ── Translate CTA (pinned to bottom) ─────────────────────────
-            Container(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                12,
-                18,
-                MediaQuery.of(context).padding.bottom + 12,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.backgroundSecondary(context),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: loading
+              const SizedBox(height: 20),
+
+              // ── Translate CTA ───────────────────────────────────────
+              loading
                   ? const _TranslatingIndicator()
                   : AppPrimaryButton(
                       label: 'Translate',
                       enabled: _hasText,
                       onTap: _translate,
                     ),
-            ),
-          ],
+
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: GoogleFonts.googleSans(
+                    fontSize: 13,
+                    color: AppColors.textDanger(context),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              // ── Hint card ───────────────────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.brandPrimary.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Every phrase becomes a lesson',
+                      style: GoogleFonts.googleSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.brandPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Whatever you translate is saved to your phrasebook and '
+                      'scheduled for review — so the sentences you actually '
+                      'need are the ones you remember.',
+                      style: GoogleFonts.googleSans(
+                        fontSize: 13,
+                        color: AppColors.textSecondary(context),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // ── Mic button ───────────────────────────────────────────────
+              Center(
+                child: GlowMicButton(
+                  listening: speech.listening,
+                  onTap: loading ? null : _toggleMic,
+                  size: 56,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: speech.listening
+                    ? Text(
+                            'Listening…',
+                            style: GoogleFonts.googleSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.brandPrimary,
+                            ),
+                          )
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .fadeIn(duration: 600.ms)
+                    : Text(
+                        'Tap the mic to speak',
+                        style: GoogleFonts.googleSans(
+                          fontSize: 13,
+                          color: AppColors.textTertiary(context),
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

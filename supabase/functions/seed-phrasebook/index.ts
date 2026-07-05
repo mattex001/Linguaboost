@@ -1,6 +1,8 @@
-// seed-phrasebook: cold-start onboarding (PRD §9.4). Translates 8 fixed
-// relocation-starter phrases and inserts them as seeded, immediately-due
-// phrase rows for the caller. Idempotent: no-op if the user has any phrases.
+// seed-phrasebook: cold-start onboarding (PRD §9.4), also re-run whenever a
+// user switches to a language they've never practiced before. Translates 8
+// fixed relocation-starter phrases and inserts them as seeded,
+// immediately-due phrase rows. Idempotent per target_lang: no-op if the user
+// already has phrases in that specific language.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SUPPORTED_LANGS } from "../_shared/taxonomy.ts";
@@ -57,11 +59,12 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Idempotency guard: skip if the user already has phrases.
+  // Idempotency guard: skip if the user already has phrases in this language.
   const { count, error: countError } = await admin
     .from("phrases")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("target_lang", targetLang);
   if (countError) {
     console.error("seed-phrasebook count failed:", countError);
     return jsonResponse({ error: "Could not check existing phrases" }, 500);

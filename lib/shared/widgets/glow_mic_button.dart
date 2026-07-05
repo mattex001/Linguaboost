@@ -44,9 +44,10 @@ class _GlowMicButtonState extends State<GlowMicButton> {
 
     final floatDuration = listening ? 1400.ms : 2600.ms;
     final floatRange = listening ? 5.0 : 3.5;
-    final pulseDuration = listening ? 900.ms : 2200.ms;
-    final pulseMin = listening ? 0.92 : 0.95;
-    final pulseMax = listening ? 1.13 : 1.05;
+    final pulseDuration = listening ? 700.ms : 1400.ms;
+    final pulseMin = listening ? 0.9 : 0.94;
+    final pulseMax = listening ? 1.2 : 1.1;
+    final rimRotateDuration = listening ? 2000.ms : 4500.ms;
 
     final button = GestureDetector(
       onTap: widget.onTap,
@@ -69,54 +70,68 @@ class _GlowMicButtonState extends State<GlowMicButton> {
                 // Outer blurred aurora halo — breathes continuously.
                 KeyedSubtree(
                   key: ValueKey('halo-$listening'),
-                  child: ImageFiltered(
-                    imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: Container(
-                      width: size * 1.9,
-                      height: size * 1.9,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            AppColors.brandPrimary.withValues(alpha: 0.65),
-                            _haloLavender.withValues(alpha: 0.4),
-                            _haloTeal.withValues(alpha: 0.0),
-                          ],
-                          stops: const [0.0, 0.55, 1.0],
-                        ),
-                      ),
-                    ),
-                  )
-                      .animate(onPlay: (c) => c.repeat(reverse: true))
-                      .scaleXY(
-                        begin: pulseMin,
-                        end: pulseMax,
-                        duration: pulseDuration,
-                        curve: Curves.easeInOut,
-                      )
-                      .fadeIn(
-                        begin: 0.75,
-                        duration: pulseDuration,
-                        curve: Curves.easeInOut,
-                      ),
+                  child:
+                      ImageFiltered(
+                            imageFilter: ImageFilter.blur(
+                              sigmaX: 16,
+                              sigmaY: 16,
+                            ),
+                            child: Container(
+                              width: size * 1.9,
+                              height: size * 1.9,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    AppColors.brandPrimary.withValues(
+                                      alpha: 0.85,
+                                    ),
+                                    _haloLavender.withValues(alpha: 0.55),
+                                    _haloTeal.withValues(alpha: 0.0),
+                                  ],
+                                  stops: const [0.0, 0.55, 1.0],
+                                ),
+                              ),
+                            ),
+                          )
+                          .animate(onPlay: (c) => c.repeat(reverse: true))
+                          .scaleXY(
+                            begin: pulseMin,
+                            end: pulseMax,
+                            duration: pulseDuration,
+                            curve: Curves.easeInOut,
+                          )
+                          .fadeIn(
+                            begin: 0.75,
+                            duration: pulseDuration,
+                            curve: Curves.easeInOut,
+                          ),
                 ),
 
-                // Crisp gradient rim — the purple/blue/teal ring.
+                // Crisp gradient rim — the purple/blue/teal ring, always
+                // spinning so the glow visibly reads as "alive" even at rest.
                 Container(
-                  width: size * 1.32,
-                  height: size * 1.32,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: SweepGradient(
-                      colors: [
-                        AppColors.brandPrimary,
-                        _haloBlue,
-                        _haloTeal,
-                        AppColors.brandPrimary,
-                      ],
+                      width: size * 1.32,
+                      height: size * 1.32,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: SweepGradient(
+                          colors: [
+                            AppColors.brandPrimary,
+                            _haloBlue,
+                            _haloTeal,
+                            AppColors.brandPrimary,
+                          ],
+                        ),
+                      ),
+                    )
+                    .animate(onPlay: (c) => c.repeat())
+                    .rotate(
+                      begin: 0,
+                      end: 1,
+                      duration: rimRotateDuration,
+                      curve: Curves.linear,
                     ),
-                  ),
-                ),
 
                 // Dark core with the animated sound-bar icon.
                 Container(

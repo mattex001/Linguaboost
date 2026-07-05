@@ -6,10 +6,11 @@ import '../../phrasebook/providers/phrasebook_provider.dart';
 import '../domain/sm2.dart';
 
 /// Real-time count of phrases due for review (FR-3.2) — derived from the
-/// same stream that powers the phrasebook list.
+/// same stream that powers the phrasebook list, scoped to the active
+/// practicing language so a review session never mixes languages.
 final dueCountProvider = Provider<int>((ref) {
   return ref
-      .watch(phrasesSnapshotProvider)
+      .watch(phrasesForActiveLanguageProvider)
       .where((phrase) => phrase.isDue)
       .length;
 });
@@ -65,7 +66,7 @@ class ReviewSessionNotifier extends Notifier<ReviewSessionState> {
 
   void start() {
     final due = ref
-        .read(phrasesSnapshotProvider)
+        .read(phrasesForActiveLanguageProvider)
         .where((phrase) => phrase.isDue)
         .toList();
     state = ReviewSessionState(queue: due, active: due.isNotEmpty);

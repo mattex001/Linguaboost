@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/cool_icons.dart';
+import '../../../core/providers/user_provider.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/language_switcher_sheet.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
+import '../../phrasebook/widgets/language_switch_action.dart';
 import '../providers/review_provider.dart';
 import '../widgets/review_card.dart';
 
@@ -42,18 +45,33 @@ class _IdleView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dueCount = ref.watch(dueCountProvider);
     final caughtUp = dueCount == 0;
+    final activeLanguage = ref.watch(activeLanguageCodeProvider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 90),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Review',
-            style: GoogleFonts.chauPhilomeneOne(
-              fontSize: 28,
-              color: AppColors.textPrimary(context),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Review',
+                style: GoogleFonts.chauPhilomeneOne(
+                  fontSize: 28,
+                  color: AppColors.textPrimary(context),
+                ),
+              ),
+              LanguagePill(
+                code: activeLanguage,
+                onTap: () => showLanguageSwitcherSheet(
+                  context,
+                  currentCode: activeLanguage,
+                  onSelect: (code) =>
+                      switchActiveLanguage(context, ref, code),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 2),
           Text(

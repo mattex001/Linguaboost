@@ -60,6 +60,62 @@ const List<TargetLanguage> kTargetLanguages = [
     ttsLocale: 'sw-KE',
     flag: '🇰🇪',
   ),
+  TargetLanguage(
+    code: 'yo',
+    label: 'Yoruba',
+    nativeLabel: 'Yorùbá',
+    ttsLocale: 'yo-NG',
+    flag: '🇳🇬',
+  ),
+  TargetLanguage(
+    code: 'ig',
+    label: 'Igbo',
+    nativeLabel: 'Igbo',
+    ttsLocale: 'ig-NG',
+    flag: '🇳🇬',
+  ),
+  TargetLanguage(
+    code: 'el',
+    label: 'Greek',
+    nativeLabel: 'Ελληνικά',
+    ttsLocale: 'el-GR',
+    flag: '🇬🇷',
+  ),
+  TargetLanguage(
+    code: 'ar',
+    label: 'Arabic',
+    nativeLabel: 'العربية',
+    ttsLocale: 'ar-SA',
+    flag: '🇸🇦',
+  ),
+  TargetLanguage(
+    code: 'zh',
+    label: 'Chinese (Mandarin)',
+    nativeLabel: '中文',
+    ttsLocale: 'zh-CN',
+    flag: '🇨🇳',
+  ),
+  TargetLanguage(
+    code: 'hi',
+    label: 'Hindi',
+    nativeLabel: 'हिन्दी',
+    ttsLocale: 'hi-IN',
+    flag: '🇮🇳',
+  ),
+  TargetLanguage(
+    code: 'ja',
+    label: 'Japanese',
+    nativeLabel: '日本語',
+    ttsLocale: 'ja-JP',
+    flag: '🇯🇵',
+  ),
+  TargetLanguage(
+    code: 'ko',
+    label: 'Korean',
+    nativeLabel: '한국어',
+    ttsLocale: 'ko-KR',
+    flag: '🇰🇷',
+  ),
 ];
 
 TargetLanguage? targetLanguageForCode(String? code) {

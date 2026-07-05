@@ -10,6 +10,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/cool_icons.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/router/app_router.dart';
+import '../../../shared/models/user_model.dart';
 import '../../../shared/widgets/glow_mic_button.dart';
 import '../../phrasebook/providers/phrasebook_provider.dart';
 import '../../phrasebook/screens/phrasebook_screen.dart';
@@ -161,6 +162,7 @@ class _NavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = ref.watch(displayNameProvider);
+    final user = ref.watch(userSnapshotProvider);
     final textColor = immersive ? Colors.white : AppColors.textPrimary(context);
 
     return SizedBox(
@@ -170,10 +172,9 @@ class _NavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _NavCircleButton(
-              icon: CoolIcons.menu_duo_md,
-              onTap: () {},
-              immersive: immersive,
+            _AvatarNavButton(
+              user: user,
+              onTap: () => ref.read(activeNavTabProvider.notifier).setTab(4),
             ),
             Text(
               'Hello $name',
@@ -189,6 +190,57 @@ class _NavBar extends StatelessWidget {
               immersive: immersive,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarNavButton extends StatelessWidget {
+  final UserModel? user;
+  final VoidCallback onTap;
+  const _AvatarNavButton({required this.user, required this.onTap});
+
+  String get _initials {
+    final src = user?.name?.trim().isNotEmpty == true
+        ? user!.name!.trim()
+        : (user?.email ?? '').split('@').first;
+    if (src.isEmpty) return '?';
+    final parts = src.split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return src.length > 1
+        ? '${src[0]}${src[1]}'.toUpperCase()
+        : src[0].toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.brandPrimary,
+              AppColors.brandPrimary.withValues(alpha: 0.6),
+            ],
+          ),
+        ),
+        child: Center(
+          child: Text(
+            _initials,
+            style: GoogleFonts.chauPhilomeneOne(
+              fontSize: 16,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );

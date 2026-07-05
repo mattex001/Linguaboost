@@ -17,13 +17,25 @@ final phrasesStreamProvider = StreamProvider<List<Phrase>>((ref) {
   return ref.watch(phraseRepositoryProvider).watchPhrases(uid);
 });
 
-/// Snapshot list (empty while loading).
+/// Snapshot list (empty while loading). Unfiltered — spans every language
+/// the user has ever saved a phrase in. Use [phrasesForActiveLanguageProvider]
+/// for anything user-facing (list, counts, due queue).
 final phrasesSnapshotProvider = Provider<List<Phrase>>((ref) {
   return ref.watch(phrasesStreamProvider).asData?.value ?? const [];
 });
 
+/// The phrasebook scoped to the active practicing language (PRD ask:
+/// switching to Spanish should show only Spanish phrases, and vice versa).
+final phrasesForActiveLanguageProvider = Provider<List<Phrase>>((ref) {
+  final activeLanguage = ref.watch(activeLanguageCodeProvider);
+  return ref
+      .watch(phrasesSnapshotProvider)
+      .where((p) => p.targetLang == activeLanguage)
+      .toList();
+});
+
 final phrasesSavedCountProvider = Provider<int>((ref) {
-  return ref.watch(phrasesSnapshotProvider).length;
+  return ref.watch(phrasesForActiveLanguageProvider).length;
 });
 
 // ── Search + category filters ─────────────────────────────────────────────────
@@ -51,10 +63,11 @@ final phraseCategoryFilterProvider =
   PhraseCategoryFilterNotifier.new,
 );
 
-/// Client-side filter over the streamed list: case- and diacritic-insensitive
-/// match on source or translated text (FR-2.4), plus category chip filter.
+/// Client-side filter over the active-language phrasebook: case- and
+/// diacritic-insensitive match on source or translated text (FR-2.4), plus
+/// category chip filter.
 final filteredPhrasesProvider = Provider<List<Phrase>>((ref) {
-  final phrases = ref.watch(phrasesSnapshotProvider);
+  final phrases = ref.watch(phrasesForActiveLanguageProvider);
   final query = _foldDiacritics(ref.watch(phraseSearchQueryProvider).trim());
   final category = ref.watch(phraseCategoryFilterProvider);
 

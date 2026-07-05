@@ -37,4 +37,12 @@ export const SUPPORTED_LANGS: Record<string, string> = {
   de: "German",
   it: "Italian",
   sw: "Swahili",
+  yo: "Yoruba",
+  ig: "Igbo",
+  el: "Greek",
+  ar: "Arabic",
+  zh: "Chinese (Mandarin)",
+  hi: "Hindi",
+  ja: "Japanese",
+  ko: "Korean",
 };

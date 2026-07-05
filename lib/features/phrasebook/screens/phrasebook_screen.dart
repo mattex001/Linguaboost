@@ -4,9 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/cool_icons.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../shared/widgets/language_switcher_sheet.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../models/phrase.dart';
 import '../providers/phrasebook_provider.dart';
+import '../widgets/language_switch_action.dart';
 import '../widgets/phrase_detail_sheet.dart';
 
 /// Phrasebook tab: browse, search, and manage every saved phrase (FR-2.x).
@@ -31,6 +34,7 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
     final phrases = ref.watch(filteredPhrasesProvider);
     final total = ref.watch(phrasesSavedCountProvider);
     final selectedCategory = ref.watch(phraseCategoryFilterProvider);
+    final activeLanguage = ref.watch(activeLanguageCodeProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundSecondary(context),
@@ -42,22 +46,41 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
             // ── Header ────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 4),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Phrasebook',
-                    style: GoogleFonts.chauPhilomeneOne(
-                      fontSize: 28,
-                      color: AppColors.textPrimary(context),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phrasebook',
+                          style: GoogleFonts.chauPhilomeneOne(
+                            fontSize: 28,
+                            color: AppColors.textPrimary(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          total == 1
+                              ? '1 phrase saved'
+                              : '$total phrases saved',
+                          style: GoogleFonts.googleSans(
+                            fontSize: 13,
+                            color: AppColors.textTertiary(context),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    total == 1 ? '1 phrase saved' : '$total phrases saved',
-                    style: GoogleFonts.googleSans(
-                      fontSize: 13,
-                      color: AppColors.textTertiary(context),
+                  const SizedBox(width: 12),
+                  LanguagePill(
+                    code: activeLanguage,
+                    onTap: () => showLanguageSwitcherSheet(
+                      context,
+                      currentCode: activeLanguage,
+                      onSelect: (code) =>
+                          switchActiveLanguage(context, ref, code),
                     ),
                   ),
                 ],
