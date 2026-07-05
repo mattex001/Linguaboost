@@ -66,6 +66,15 @@ class AuthService {
       throw const AuthException('Sign up failed');
     }
 
+    // Existing confirmed accounts get an obfuscated "pending" response with
+    // no identities and NO email is sent — don't strand the user on the OTP
+    // screen waiting for one.
+    if (authUser.identities?.isEmpty ?? true) {
+      throw const AuthException(
+        'An account with this email already exists. Log in with your password instead.',
+      );
+    }
+
     if (response.session == null) {
       // Email confirmation pending — Supabase has emailed the OTP code.
       return (user: null, isNewUser: true, needsVerification: true);
