@@ -10,6 +10,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/cool_icons.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/router/app_router.dart';
+import '../../../shared/widgets/glow_mic_button.dart';
 import '../../phrasebook/providers/phrasebook_provider.dart';
 import '../../phrasebook/screens/phrasebook_screen.dart';
 import '../../profile/screens/profile_screen.dart';
@@ -336,29 +337,7 @@ class _QuickCaptureCard extends ConsumerWidget {
         child: Row(
           children: [
             // Mic button — tap, speak, and hear the translation
-            GestureDetector(
-              onTap: goVoice,
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.brandPrimary,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0xFF141413),
-                      offset: Offset(0, 4),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  CoolIcons.user_voice,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-            ),
+            GlowMicButton(listening: false, onTap: goVoice, size: 48),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

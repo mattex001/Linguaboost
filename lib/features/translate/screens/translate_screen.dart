@@ -6,11 +6,11 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../core/constants/cool_icons.dart';
 import '../../../core/constants/languages.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/tts_service.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/glow_mic_button.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../../phrasebook/widgets/phrase_detail_sheet.dart';
 import '../providers/translate_provider.dart';
@@ -328,33 +328,10 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 16),
                             child: Center(
-                              child: GestureDetector(
+                              child: GlowMicButton(
+                                listening: speech.listening,
                                 onTap: loading ? null : _toggleMic,
-                                child: Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: speech.listening
-                                        ? AppColors.brandPrimary
-                                        : AppColors.backgroundSecondary(
-                                            context,
-                                          ),
-                                    border: Border.all(
-                                      color: speech.listening
-                                          ? AppColors.brandPrimary
-                                          : AppColors.borderSecondary(context),
-                                      width: speech.listening ? 2 : 1,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    CoolIcons.user_voice,
-                                    size: 30,
-                                    color: speech.listening
-                                        ? Colors.white
-                                        : AppColors.textPrimary(context),
-                                  ),
-                                ),
+                                size: 56,
                               ),
                             ),
                           ),
