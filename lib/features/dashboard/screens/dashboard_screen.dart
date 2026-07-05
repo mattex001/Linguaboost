@@ -132,6 +132,8 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
                       const SizedBox(height: 10),
                       _PromoBanner(immersive: hasBackground),
                       const SizedBox(height: 24),
+                      _QuickCaptureCard(immersive: hasBackground),
+                      const SizedBox(height: 16),
                       _ReviewCtaCard(immersive: hasBackground),
                       const SizedBox(height: 24),
                       const _StreakCard(),
@@ -279,6 +281,133 @@ class _PromoBanner extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Quick capture card (speak → translate → hear it) ─────────────────────────
+
+class _QuickCaptureCard extends ConsumerWidget {
+  final bool immersive;
+  const _QuickCaptureCard({required this.immersive});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textPrimary =
+        immersive ? Colors.white : AppColors.textPrimary(context);
+    final textTertiary = immersive
+        ? Colors.white.withValues(alpha: 0.7)
+        : AppColors.textTertiary(context);
+
+    void goVoice() {
+      ref.read(voiceCaptureRequestProvider.notifier).request();
+      ref.read(activeNavTabProvider.notifier).setTab(1);
+    }
+
+    void goType() => ref.read(activeNavTabProvider.notifier).setTab(1);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        decoration: BoxDecoration(
+          color: immersive
+              ? Colors.white.withValues(alpha: 0.15)
+              : AppColors.backgroundPrimary(context),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: immersive
+                ? Colors.white.withValues(alpha: 0.3)
+                : AppColors.borderTertiary(context),
+          ),
+          boxShadow: immersive
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            // Mic button — tap, speak, and hear the translation
+            GestureDetector(
+              onTap: goVoice,
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.brandPrimary,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0xFF141413),
+                      offset: Offset(0, 4),
+                      blurRadius: 0,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  CoolIcons.user_voice,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'What do you need to say?',
+                    style: GoogleFonts.googleSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Tap the mic, speak, and hear it in your language',
+                    style: GoogleFonts.googleSans(
+                      fontSize: 12,
+                      color: textTertiary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: goType,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          CoolIcons.edit_pencil_01,
+                          size: 14,
+                          color: AppColors.brandPrimary,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Type instead',
+                          style: GoogleFonts.googleSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.brandPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

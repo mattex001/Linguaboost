@@ -85,6 +85,23 @@ final activeNavTabProvider = NotifierProvider<ActiveNavTabNotifier, int>(
   ActiveNavTabNotifier.new,
 );
 
+// ── Voice capture handoff ─────────────────────────────────────────────────────
+
+/// Set by the Home tab's mic button; the Translate tab consumes it and
+/// immediately starts the hands-free capture → translate → play pipeline.
+class VoiceCaptureRequestNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void request() => state = true;
+  void consume() => state = false;
+}
+
+final voiceCaptureRequestProvider =
+    NotifierProvider<VoiceCaptureRequestNotifier, bool>(
+  VoiceCaptureRequestNotifier.new,
+);
+
 // ── Daily progress ────────────────────────────────────────────────────────────
 
 class DailyProgressState {

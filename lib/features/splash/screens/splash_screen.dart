@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/providers/user_provider.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/services/local_storage_service.dart';
 
@@ -25,24 +26,40 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   Future<void> _bootstrap() async {
     // Minimum display time so the logo doesn't flash
-    await Future.delayed(const Duration(milliseconds: 1800));
-    if (!mounted) return;
+    final minDelay = Future.delayed(const Duration(milliseconds: 1800));
 
     final session = Supabase.instance.client.auth.currentSession;
     final storage = LocalStorageService.instance;
 
-    if (session != null) {
-      // Active session — skip auth entirely
-      if (storage.onboardingComplete) {
-        context.go(AppRoutes.dashboard);
-      } else {
-        // Signed in but personalization not finished — resume it
-        context.go(AppRoutes.personalization);
-      }
-    } else {
-      // No active session — show onboarding / auth
+    if (session == null) {
+      await minDelay;
+      if (!mounted) return;
       context.go(AppRoutes.onboarding);
+      return;
     }
+
+    // Onboarding completion comes from the server profile (a chosen target
+    // language), not just the device flag — SharedPreferences survive app
+    // upgrades and could otherwise skip onboarding for fresh accounts.
+    bool complete = storage.onboardingComplete;
+    try {
+      final profile =
+          await ref.read(userRepositoryProvider).getUser(session.user.id);
+      if (profile != null) {
+        complete = profile.targetLanguage != null;
+        if (complete) {
+          await storage.setOnboardingComplete();
+        } else {
+          await storage.clearOnboardingComplete();
+        }
+      }
+    } catch (_) {
+      // Offline — fall back to the device flag.
+    }
+
+    await minDelay;
+    if (!mounted) return;
+    context.go(complete ? AppRoutes.dashboard : AppRoutes.personalization);
   }
 
   @override

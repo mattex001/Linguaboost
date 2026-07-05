@@ -9,6 +9,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/cool_icons.dart';
 import '../../../core/constants/languages.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/services/tts_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../../phrasebook/widgets/phrase_detail_sheet.dart';
@@ -29,6 +30,10 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
   bool _hasText = false;
   String? _error;
 
+  /// Hands-free pipeline: mic-initiated capture auto-translates when the
+  /// speaker goes quiet and auto-plays the translation.
+  bool _autoVoice = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,15 +49,7 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
     super.dispose();
   }
 
-  Future<void> _toggleMic() async {
-    final speech = ref.read(speechInputProvider);
-    final notifier = ref.read(speechInputProvider.notifier);
-
-    if (speech.listening) {
-      await notifier.stop();
-      return;
-    }
-
+  Future<void> _startVoiceCapture() async {
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
       if (!mounted) return;
@@ -64,10 +61,22 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
       );
       return;
     }
-    await notifier.start();
+    _autoVoice = true;
+    _inputController.clear();
+    await ref.read(speechInputProvider.notifier).start();
   }
 
-  Future<void> _translate() async {
+  Future<void> _toggleMic() async {
+    final speech = ref.read(speechInputProvider);
+    if (speech.listening) {
+      // Manual stop still flows into auto-translate via the listener.
+      await ref.read(speechInputProvider.notifier).stop();
+      return;
+    }
+    await _startVoiceCapture();
+  }
+
+  Future<void> _translate({bool speakResult = false}) async {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
 
@@ -88,6 +97,12 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
 
       if (!mounted) return;
       _inputController.clear();
+      if (speakResult) {
+        // Voice flow: hear the translation immediately.
+        ref
+            .read(pronunciationPlayerProvider)
+            .speak(phrase.translatedText, phrase.targetLang);
+      }
       PhraseDetailSheet.show(context, phrase: phrase);
     } on TranslationException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -108,13 +123,40 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
         kTargetLanguages.first;
     final loading = translateState.isLoading;
 
-    // Live speech transcript fills the input field
+    // Home-tab mic handoff: start hands-free capture as soon as this tab
+    // becomes active with a pending request.
+    ref.listen<bool>(voiceCaptureRequestProvider, (prev, requested) {
+      if (requested) {
+        ref.read(voiceCaptureRequestProvider.notifier).consume();
+        _startVoiceCapture();
+      }
+    });
+    // Consume a request that was already set before this widget first built.
+    if (ref.read(voiceCaptureRequestProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(voiceCaptureRequestProvider.notifier).consume();
+        _startVoiceCapture();
+      });
+    }
+
+    // Live speech transcript fills the input field; when listening ends in
+    // hands-free mode, translation starts automatically and the result is
+    // spoken aloud (FR: speak → translate → play).
     ref.listen<SpeechInputState>(speechInputProvider, (prev, next) {
       if (next.listening && next.transcript.isNotEmpty) {
         _inputController.text = next.transcript;
         _inputController.selection = TextSelection.fromPosition(
           TextPosition(offset: _inputController.text.length),
         );
+      }
+      final stoppedListening = (prev?.listening ?? false) && !next.listening;
+      if (stoppedListening && _autoVoice) {
+        _autoVoice = false;
+        if (next.transcript.trim().isNotEmpty && !loading) {
+          _inputController.text = next.transcript;
+          _translate(speakResult: true);
+        }
       }
     });
 

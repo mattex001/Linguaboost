@@ -145,7 +145,18 @@ class AuthService {
         await _userRepository.getUser(authUser.id) ??
         UserModel(id: authUser.id, email: email);
 
-    final isNewUser = profile.onboardingStep == 0;
+    // Sync the device-local onboarding flag from the server profile. The
+    // local flag alone can't be trusted: SharedPreferences survive app
+    // upgrades (including from the pre-pivot app), which would skip
+    // onboarding for accounts that never completed it.
+    final onboarded = profile.targetLanguage != null;
+    if (onboarded) {
+      await LocalStorageService.instance.setOnboardingComplete();
+    } else {
+      await LocalStorageService.instance.clearOnboardingComplete();
+    }
+
+    final isNewUser = !onboarded;
     return (user: profile, isNewUser: isNewUser);
   }
 

@@ -111,6 +111,10 @@ class SpeechInputNotifier extends Notifier<SpeechInputState> {
     state = state.copyWith(listening: true, transcript: '');
     await _speech.listen(
       localeId: 'en_US',
+      // Auto-stop ~2.5s after the speaker goes quiet, so the hands-free
+      // pipeline (speak → translate → play) can continue without a tap.
+      pauseFor: const Duration(milliseconds: 2500),
+      listenFor: const Duration(seconds: 45),
       listenOptions: SpeechListenOptions(partialResults: true),
       onResult: (SpeechRecognitionResult result) {
         state = state.copyWith(transcript: result.recognizedWords);

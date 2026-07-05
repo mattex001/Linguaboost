@@ -34,6 +34,8 @@ class LocalStorageService {
       _prefs.getBool('onboarding_complete') ?? false;
   Future<void> setOnboardingComplete() =>
       _prefs.setBool('onboarding_complete', true);
+  Future<void> clearOnboardingComplete() =>
+      _prefs.setBool('onboarding_complete', false);
 
   // ── Theme ──────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/user_provider.dart';
 import '../models/phrase.dart';
 import '../repositories/phrase_repository.dart';
 
@@ -9,17 +9,12 @@ final phraseRepositoryProvider = Provider<PhraseRepository>(
 );
 
 /// Live stream of the user's whole phrasebook (newest first). The single
-/// subscription behind the list UI, saved count, and due count.
+/// subscription behind the list UI, saved count, and due count. Keyed on the
+/// stable user id so auth events don't tear the stream down.
 final phrasesStreamProvider = StreamProvider<List<Phrase>>((ref) {
-  final authState = ref.watch(authStateProvider);
-  return authState.when(
-    data: (user) {
-      if (user == null) return Stream.value(const <Phrase>[]);
-      return ref.watch(phraseRepositoryProvider).watchPhrases(user.id);
-    },
-    loading: () => const Stream.empty(),
-    error: (_, _) => Stream.value(const <Phrase>[]),
-  );
+  final uid = ref.watch(authUserIdProvider);
+  if (uid == null) return Stream.value(const <Phrase>[]);
+  return ref.watch(phraseRepositoryProvider).watchPhrases(uid);
 });
 
 /// Snapshot list (empty while loading).
