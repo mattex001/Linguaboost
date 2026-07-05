@@ -14,9 +14,18 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/services/local_storage_service.dart';
 
+/// What the entered code is for — determines which auth call runs on
+/// verify/resend, and where the user lands next.
+enum OtpPurpose { emailVerification, passwordReset }
+
 class OtpScreen extends ConsumerStatefulWidget {
   final String email;
-  const OtpScreen({super.key, required this.email});
+  final OtpPurpose purpose;
+  const OtpScreen({
+    super.key,
+    required this.email,
+    this.purpose = OtpPurpose.emailVerification,
+  });
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -105,7 +114,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      await ref.read(authServiceProvider).resendSignupOtp(widget.email);
+      final auth = ref.read(authServiceProvider);
+      if (widget.purpose == OtpPurpose.passwordReset) {
+        await auth.sendPasswordResetOtp(widget.email);
+      } else {
+        await auth.resendSignupOtp(widget.email);
+      }
       if (!mounted) return;
       // Reset boxes
       for (final c in _controllers) { c.clear(); }
@@ -127,10 +141,16 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final result = await ref.read(authServiceProvider).verifySignupOtp(
-        email: widget.email,
-        otp: _otp,
-      );
+      final auth = ref.read(authServiceProvider);
+
+      if (widget.purpose == OtpPurpose.passwordReset) {
+        await auth.verifyPasswordResetOtp(email: widget.email, otp: _otp);
+        if (!mounted) return;
+        context.pushReplacement(AppRoutes.authNewPassword, extra: widget.email);
+        return;
+      }
+
+      final result = await auth.verifySignupOtp(email: widget.email, otp: _otp);
       if (!mounted) return;
 
       if (result.isNewUser) {
@@ -207,7 +227,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 const SizedBox(height: 8),
 
                 Text(
-                  'Verify your email address',
+                  widget.purpose == OtpPurpose.passwordReset
+                      ? 'Enter reset code'
+                      : 'Verify your email address',
                   style: GoogleFonts.googleSans(
                     fontSize: 24,
                     fontWeight: FontWeight.w600,

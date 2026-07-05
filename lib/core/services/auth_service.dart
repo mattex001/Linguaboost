@@ -115,6 +115,46 @@ class AuthService {
   Future<void> resendSignupOtp(String email) =>
       _client.auth.resend(type: OtpType.signup, email: email.trim());
 
+  // ── Password reset ────────────────────────────────────────────────────────
+  // Step 1: email a 6-digit recovery code (same OTP template mechanism as
+  // signup, type=recovery). Supabase does not reveal whether the email is
+  // registered, so this never throws for an unknown address.
+
+  Future<void> sendPasswordResetOtp(String email) =>
+      _client.auth.resetPasswordForEmail(email.trim());
+
+  /// Step 2: verify the code. On success this establishes a session scoped
+  /// to changing the password (the caller must follow up with
+  /// [updatePasswordAfterReset] before the user is fully signed in).
+  Future<void> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    final response = await _client.auth.verifyOTP(
+      type: OtpType.recovery,
+      email: email.trim(),
+      token: otp.trim(),
+    );
+    if (response.session == null) {
+      throw const AuthException('Verification failed');
+    }
+  }
+
+  /// Step 3: set the new password on the recovery session, then resolve
+  /// where to route the user next (same shape as a normal sign-in).
+  Future<({UserModel user, bool isNewUser})> updatePasswordAfterReset(
+    String newPassword,
+  ) async {
+    final response = await _client.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+    final authUser = response.user;
+    if (authUser == null) {
+      throw const AuthException('Could not update password');
+    }
+    return _postSignIn(authUser, email: authUser.email ?? '');
+  }
+
   // ── Google Sign-In ─────────────────────────────────────────────────────────
 
   Future<({UserModel user, bool isNewUser})> signInWithGoogle() async {

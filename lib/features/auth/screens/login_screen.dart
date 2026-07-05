@@ -249,6 +249,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onSubmitted: _continue,
                 ),
 
+                const SizedBox(height: 10),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () => context.push(AppRoutes.authForgotPassword),
+                    behavior: HitTestBehavior.opaque,
+                    child: Text(
+                      'Forgot password?',
+                      style: GoogleFonts.googleSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.brandPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(

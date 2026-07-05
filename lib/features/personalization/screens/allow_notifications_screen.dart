@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/cool_icons.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/router/app_router.dart';
@@ -22,6 +23,23 @@ class AllowNotificationsScreen extends ConsumerStatefulWidget {
 class _AllowNotificationsScreenState
     extends ConsumerState<AllowNotificationsScreen> {
   bool _busy = false;
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 8, minute: 0);
+
+  String get _formattedTime => _selectedTime.format(context);
+
+  String get _hhmm =>
+      '${_selectedTime.hour.toString().padLeft(2, '0')}:'
+      '${_selectedTime.minute.toString().padLeft(2, '0')}';
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+      helpText: 'Set reminder time',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _selectedTime = picked);
+  }
 
   Future<void> _enable() async {
     if (_busy) return;
@@ -31,9 +49,10 @@ class _AllowNotificationsScreenState
       final granted = await NotificationService.instance.requestPermission();
       final uid = ref.read(authStateProvider).asData?.value?.id;
       if (uid != null && granted) {
-        await ref
-            .read(userRepositoryProvider)
-            .updateUser(uid, {'notifications_enabled': true});
+        await ref.read(userRepositoryProvider).updateUser(uid, {
+          'notifications_enabled': true,
+          'notification_start': _hhmm,
+        });
       }
     } catch (_) {
       // Non-blocking — reminders can be enabled later from Profile.
@@ -127,7 +146,7 @@ class _AllowNotificationsScreenState
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      '8:00 AM',
+                                      _formattedTime,
                                       style: GoogleFonts.googleSans(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
@@ -160,6 +179,66 @@ class _AllowNotificationsScreenState
                         ],
                       ),
                     ),
+                    const SizedBox(height: 12),
+
+                    // ── Preferred time selector ────────────────────────────
+                    GestureDetector(
+                      onTap: _pickTime,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundTertiary(context),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.borderTertiary(context),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Remind me every day at',
+                                style: GoogleFonts.googleSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textPrimary(context),
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _formattedTime,
+                              style: GoogleFonts.googleSans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.brandPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              CoolIcons.edit_pencil_01,
+                              size: 15,
+                              color: AppColors.brandPrimary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Text(
+                        'Tap to change the time — you can also update it later in Profile.',
+                        style: GoogleFonts.googleSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textTertiary(context),
+                          height: 16.8 / 12,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -169,7 +248,7 @@ class _AllowNotificationsScreenState
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
               child: PersonalizationPrimaryButton(
-                label: _busy ? 'Enabling…' : 'Enable reminders',
+                label: _busy ? 'Enabling…' : 'Enable reminders at $_formattedTime',
                 enabled: !_busy,
                 onTap: _enable,
               ),

@@ -13,6 +13,8 @@ import '../../features/personalization/screens/allow_notifications_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/signup_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/new_password_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/dashboard/screens/home_themes_screen.dart';
 import '../../features/notifications/screens/notification_prompt_screen.dart';
@@ -54,6 +56,9 @@ class AppRoutes {
   static const String authLogin = '/auth/login';
   static const String authSignup = '/auth/signup';
   static const String authOtp = '/auth/otp';
+  static const String authForgotPassword = '/auth/forgot-password';
+  static const String authResetOtp = '/auth/reset-otp';
+  static const String authNewPassword = '/auth/new-password';
 }
 
 /// Riverpod provider that vends the [GoRouter] instance.
@@ -78,8 +83,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Kick unauthenticated users away from protected pages
       if (!signedIn && !isPublic) return AppRoutes.onboarding;
 
-      // Signed-in users don't need onboarding/auth screens
-      if (signedIn && isPublic && path != AppRoutes.splash) {
+      // Signed-in users don't need onboarding/auth screens — except mid
+      // password-reset, which legitimately runs on a recovery session while
+      // still under /auth/*.
+      final isPasswordResetStep = path == AppRoutes.authNewPassword;
+      if (signedIn &&
+          isPublic &&
+          path != AppRoutes.splash &&
+          !isPasswordResetStep) {
         final complete = LocalStorageService.instance.onboardingComplete;
         return complete ? AppRoutes.dashboard : AppRoutes.personalization;
       }
@@ -186,6 +197,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final email = (state.extra as String?) ?? '';
           return OtpScreen(email: email);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.authForgotPassword,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.authResetOtp,
+        builder: (context, state) {
+          final email = (state.extra as String?) ?? '';
+          return OtpScreen(email: email, purpose: OtpPurpose.passwordReset);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.authNewPassword,
+        builder: (context, state) {
+          final email = (state.extra as String?) ?? '';
+          return NewPasswordScreen(email: email);
         },
       ),
     ],
