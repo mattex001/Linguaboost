@@ -126,21 +126,26 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
             children: [
               _NavBar(ref: ref, immersive: hasBackground),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 40),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 10),
-                      _PromoBanner(immersive: hasBackground),
-                      const SizedBox(height: 24),
-                      _QuickCaptureCard(immersive: hasBackground),
-                      const SizedBox(height: 16),
-                      _ReviewCtaCard(immersive: hasBackground),
-                      const SizedBox(height: 24),
-                      const _StreakCard(),
-                      const SizedBox(height: 32),
-                    ],
+                child: RefreshIndicator(
+                  color: AppColors.brandPrimary,
+                  onRefresh: () => refreshAppData(ref),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 10),
+                        _PromoBanner(immersive: hasBackground),
+                        const SizedBox(height: 24),
+                        _QuickCaptureCard(immersive: hasBackground),
+                        const SizedBox(height: 16),
+                        _ReviewCtaCard(immersive: hasBackground),
+                        const SizedBox(height: 24),
+                        const _StreakCard(),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -161,6 +166,11 @@ class _NavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The profile stream hasn't delivered its first snapshot yet — showing
+    // the "there" fallback here would flash a wrong name for a beat before
+    // snapping to the real one, so hold an empty placeholder instead.
+    final nameReady = ref.watch(currentUserProvider).hasValue ||
+        ref.watch(userSnapshotProvider) != null;
     final name = ref.watch(displayNameProvider);
     final user = ref.watch(userSnapshotProvider);
     final textColor = immersive ? Colors.white : AppColors.textPrimary(context);
@@ -177,7 +187,7 @@ class _NavBar extends StatelessWidget {
               onTap: () => ref.read(activeNavTabProvider.notifier).setTab(4),
             ),
             Text(
-              'Hello $name',
+              nameReady ? 'Hello $name' : '',
               style: GoogleFonts.googleSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -453,7 +463,16 @@ class _ReviewCtaCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dueCount = ref.watch(dueCountProvider);
+    // Until the phrasebook has data, dueCount and phrasesSaved both read as
+    // 0 — rendering that would flash "All caught up" / "0 phrases" before
+    // snapping to the real numbers a beat later. Data counts as ready from
+    // the live stream, a stream error (offline — the disk cache serves the
+    // snapshot), or a non-empty cached snapshot while still connecting.
+    final phrasesAsync = ref.watch(phrasesStreamProvider);
+    final ready = phrasesAsync.hasValue ||
+        phrasesAsync.hasError ||
+        ref.watch(phrasesSnapshotProvider).isNotEmpty;
+    final dueCount = ref.watch(reviewsRemainingTodayProvider);
     final phrasesSaved = ref.watch(phrasesSavedCountProvider);
     final caughtUp = dueCount == 0;
 
@@ -488,7 +507,9 @@ class _ReviewCtaCard extends ConsumerWidget {
                   ),
                 ],
         ),
-        child: Column(
+        child: !ready
+            ? const _ReviewCtaCardSkeleton()
+            : Column(
           children: [
             Text(
               caughtUp ? 'All caught up 🎉' : 'Ready when you are',
@@ -566,6 +587,58 @@ class _ReviewCtaCard extends ConsumerWidget {
   }
 }
 
+/// Placeholder shown while the phrasebook stream hasn't delivered its first
+/// snapshot — same footprint as the real content so the card doesn't jump.
+class _ReviewCtaCardSkeleton extends StatelessWidget {
+  const _ReviewCtaCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double width, double height) => Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: AppColors.borderTertiary(context),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        );
+
+    return Column(
+      children: [
+        bar(130, 14),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: 64,
+          height: 52,
+          child: Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: AppColors.brandPrimary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        bar(140, 15),
+        const SizedBox(height: 6),
+        bar(170, 12),
+        const SizedBox(height: 22),
+        Container(
+          width: 179,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.borderTertiary(context),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ── Streak card ───────────────────────────────────────────────────────────────
 
 class _StreakCard extends ConsumerWidget {
@@ -573,12 +646,21 @@ class _StreakCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Hold blank stat values until each underlying stream has delivered its
+    // first snapshot, rather than flashing 0 and then the real number.
+    final userReady = ref.watch(currentUserProvider).hasValue ||
+        ref.watch(userSnapshotProvider) != null;
+    final phrasesAsync = ref.watch(phrasesStreamProvider);
+    final phrasesReady = phrasesAsync.hasValue ||
+        phrasesAsync.hasError ||
+        ref.watch(phrasesSnapshotProvider).isNotEmpty;
+
     final user = ref.watch(userSnapshotProvider);
     final weekActivity = ref.watch(weekActivityProvider);
 
     final streak = user?.streak ?? 0;
     final phrases = ref.watch(phrasesSavedCountProvider);
-    final due = ref.watch(dueCountProvider);
+    final due = ref.watch(reviewsRemainingTodayProvider);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -628,19 +710,28 @@ class _StreakCard extends ConsumerWidget {
                 const SizedBox(width: 12),
 
                 Expanded(
-                  child: _StatColumn(label: 'Day', value: '$streak'),
+                  child: _StatColumn(
+                    label: 'Day',
+                    value: userReady ? '$streak' : '',
+                  ),
                 ),
 
                 _VerticalDivider(),
 
                 Expanded(
-                  child: _StatColumn(label: 'Phrases', value: '$phrases'),
+                  child: _StatColumn(
+                    label: 'Phrases',
+                    value: phrasesReady ? '$phrases' : '',
+                  ),
                 ),
 
                 _VerticalDivider(),
 
                 Expanded(
-                  child: _StatColumn(label: 'Due', value: '$due'),
+                  child: _StatColumn(
+                    label: 'Due',
+                    value: phrasesReady ? '$due' : '',
+                  ),
                 ),
               ],
             ),

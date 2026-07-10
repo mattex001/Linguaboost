@@ -14,6 +14,7 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/services/tts_service.dart';
 import '../../../shared/models/user_model.dart';
 import '../../phrasebook/providers/phrasebook_provider.dart';
 import '../../review/providers/review_provider.dart';
@@ -82,6 +83,22 @@ class ProfileScreen extends ConsumerWidget {
                     value: _goalLabel(user?.learningGoal),
                     onTap: () =>
                         context.push(AppRoutes.profileEditGoal),
+                  ),
+                  _SettingsItem(
+                    icon: CoolIcons.volume_max,
+                    title: 'Voice',
+                    value: user?.voiceName != null
+                        ? VoiceOption.friendlyName(user!.voiceName!)
+                        : 'Default',
+                    onTap: () =>
+                        context.push(AppRoutes.profileEditVoice),
+                  ),
+                  _SettingsItem(
+                    icon: CoolIcons.list_check,
+                    title: 'Daily reviews',
+                    value: '${user?.dailyReviewLimit ?? 5} phrases/day',
+                    onTap: () =>
+                        context.push(AppRoutes.profileEditReviewLimit),
                   ),
                 ],
               ),
@@ -252,9 +269,8 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _confirmSignOut(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (_) => _ConfirmSheet(
         title: 'Sign out',
         body: 'Are you sure you want to sign out of LinguaBoost?',
@@ -270,9 +286,8 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _confirmDeleteAccount(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (_) => _ConfirmSheet(
         title: 'Delete account',
         body:
@@ -483,7 +498,7 @@ class _StatsRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final phrases = ref.watch(phrasesSavedCountProvider);
-    final due = ref.watch(dueCountProvider);
+    final due = ref.watch(reviewsRemainingTodayProvider);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -1043,7 +1058,7 @@ class _ConfirmSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: AppColors.backgroundPrimary(context),
         borderRadius: BorderRadius.circular(24),

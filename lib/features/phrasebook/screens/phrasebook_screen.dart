@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/cool_icons.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/services/tts_service.dart';
 import '../../../shared/widgets/language_switcher_sheet.dart';
 import '../../dashboard/providers/dashboard_provider.dart';
 import '../models/phrase.dart';
@@ -171,20 +172,36 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
 
             // ── Phrase list ───────────────────────────────────────────────
             Expanded(
-              child: phrases.isEmpty
-                  ? _EmptyState(hasAnyPhrases: total > 0)
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 90),
-                      itemCount: phrases.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final phrase = phrases[index];
-                        return _PhraseCard(
-                          phrase: phrase,
-                          onTap: () => _openPhrase(phrase),
-                        );
-                      },
-                    ),
+              child: RefreshIndicator(
+                color: AppColors.brandPrimary,
+                onRefresh: () => refreshAppData(ref),
+                child: phrases.isEmpty
+                    ? LayoutBuilder(
+                        builder: (context, constraints) =>
+                            SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: _EmptyState(hasAnyPhrases: total > 0),
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 90),
+                        itemCount: phrases.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final phrase = phrases[index];
+                          return _PhraseCard(
+                            phrase: phrase,
+                            onTap: () => _openPhrase(phrase),
+                          );
+                        },
+                      ),
+              ),
             ),
           ],
         ),
@@ -193,6 +210,19 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
   }
 
   void _openPhrase(Phrase phrase) {
+    // Warm the pronunciation audio while the sheet opens, so the play
+    // button responds instantly instead of waiting on synthesis.
+    ref
+        .read(pronunciationPlayerProvider)
+        .prefetch(phrase.translatedText, phrase.targetLang);
+
+    // Offline-pending phrases have no Supabase row yet — recategorize and
+    // delete would hit a nonexistent id, so those actions stay hidden until
+    // the reconnect sweep upgrades the phrase.
+    if (phrase.isPendingOffline) {
+      PhraseDetailSheet.show(context, phrase: phrase);
+      return;
+    }
     PhraseDetailSheet.show(
       context,
       phrase: phrase,
@@ -286,11 +316,10 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
   }
 
   void _confirmDelete(Phrase phrase) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (sheetContext) => Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        margin: const EdgeInsets.symmetric(horizontal: 24),
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
         decoration: BoxDecoration(
           color: AppColors.backgroundPrimary(sheetContext),
@@ -417,19 +446,36 @@ class _PhraseCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(
-                        phrase.category.icon,
-                        size: 13,
-                        color: AppColors.textTertiary(context),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        phrase.category.label,
-                        style: GoogleFonts.googleSans(
-                          fontSize: 12,
+                      if (phrase.isPendingOffline) ...[
+                        Icon(
+                          Icons.cloud_off_rounded,
+                          size: 13,
+                          color: AppColors.textWarning(context),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Offline · syncs when online',
+                          style: GoogleFonts.googleSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textWarning(context),
+                          ),
+                        ),
+                      ] else ...[
+                        Icon(
+                          phrase.category.icon,
+                          size: 13,
                           color: AppColors.textTertiary(context),
                         ),
-                      ),
+                        const SizedBox(width: 5),
+                        Text(
+                          phrase.category.label,
+                          style: GoogleFonts.googleSans(
+                            fontSize: 12,
+                            color: AppColors.textTertiary(context),
+                          ),
+                        ),
+                      ],
                       if (phrase.isDue) ...[
                         const SizedBox(width: 10),
                         Container(

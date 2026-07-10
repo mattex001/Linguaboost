@@ -51,6 +51,25 @@ class LocalStorageService {
   Future<void> setThemeMode(String mode) =>
       _prefs.setString('theme_mode', mode);
 
+  // ── Cached profile (offline resilience) ───────────────────────────────────
+
+  /// Last known profile snapshot (raw `UserModel.toJson()`, JSON-encoded),
+  /// kept so the UI can show real data instead of falling back to a guest
+  /// state when the realtime `profiles` stream has nothing yet — e.g. a
+  /// cold app start with no connectivity, or a dropped connection mid-session.
+  String? get cachedProfileJson => _prefs.getString('cached_profile');
+  Future<void> setCachedProfileJson(String json) =>
+      _prefs.setString('cached_profile', json);
+
+  /// Last-known phrasebook (JSON-encoded list of `Phrase.toJson()`, keyed
+  /// per user) — read when the realtime `phrases` stream has nothing yet,
+  /// so a dropped connection or offline restart doesn't wipe previous
+  /// translations from the UI.
+  String? cachedPhrasesJson(String uid) =>
+      _prefs.getString('cached_phrases_$uid');
+  Future<void> setCachedPhrasesJson(String uid, String json) =>
+      _prefs.setString('cached_phrases_$uid', json);
+
   // ── Generic helpers ────────────────────────────────────────────────────────
 
   Future<void> remove(String key) => _prefs.remove(key);

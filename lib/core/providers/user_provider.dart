@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import '../../shared/models/user_model.dart';
 import '../../shared/repositories/user_repository.dart';
+import '../services/local_storage_service.dart';
 import 'auth_provider.dart';
 
 /// Singleton [UserRepository] instance.
@@ -24,17 +27,40 @@ final authUserIdProvider = Provider<String?>((ref) {
 
 /// Watches the `profiles` row for the currently signed-in user.
 /// Returns null when no user is signed in or the row doesn't exist yet.
+/// Every value that arrives is cached to disk (see [userSnapshotProvider])
+/// so a dropped connection doesn't make the UI fall back to a guest state.
 final currentUserProvider = StreamProvider<UserModel?>(
   (ref) {
     final uid = ref.watch(authUserIdProvider);
     if (uid == null) return Stream.value(null);
-    return ref.watch(userRepositoryProvider).watchUser(uid);
+    return ref.watch(userRepositoryProvider).watchUser(uid).map((user) {
+      if (user != null) {
+        LocalStorageService.instance.setCachedProfileJson(
+          jsonEncode(user.toJson()),
+        );
+      }
+      return user;
+    });
   },
 );
 
-/// Simple synchronous snapshot of the current user (may be null while loading).
+/// Synchronous snapshot of the current user. Prefers the live stream value
+/// — including its last-known value while reconnecting or erroring, via
+/// [AsyncValue.value] (which in Riverpod 3 keeps previous data through
+/// loading/error states) rather than [AsyncValue.asData] — and only
+/// falls back to the on-disk cache when the stream has never delivered
+/// anything at all (e.g. app launched with no connectivity).
 final userSnapshotProvider = Provider<UserModel?>((ref) {
-  return ref.watch(currentUserProvider).asData?.value;
+  final live = ref.watch(currentUserProvider).value;
+  if (live != null) return live;
+
+  final cached = LocalStorageService.instance.cachedProfileJson;
+  if (cached == null) return null;
+  try {
+    return UserModel.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
 });
 
 /// The user's current active practicing language code (e.g. 'es'). Null

@@ -26,10 +26,8 @@ class _NotificationPromptScreenState extends State<NotificationPromptScreen> {
 
   Future<void> _onMaybeLater() async {
     final router = GoRouter.of(context);
-    final skip = await showModalBottomSheet<bool>(
+    final skip = await showDialog<bool>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (_) => const _SkipConfirmSheet(),
     );
     if (skip == true && mounted) {
@@ -47,7 +45,7 @@ class _NotificationPromptScreenState extends State<NotificationPromptScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundTertiary(context),
       body: SafeArea(
         child: Column(
           children: [
@@ -59,7 +57,7 @@ class _NotificationPromptScreenState extends State<NotificationPromptScreen> {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimaryLight,
+                  color: AppColors.textPrimary(context),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -85,7 +83,7 @@ class _NotificationPromptScreenState extends State<NotificationPromptScreen> {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimaryLight,
+                  color: AppColors.textPrimary(context),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -101,7 +99,7 @@ class _NotificationPromptScreenState extends State<NotificationPromptScreen> {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
-                  color: AppColors.textTertiaryLight,
+                  color: AppColors.textTertiary(context),
                   height: 1.5,
                 ),
                 textAlign: TextAlign.center,
@@ -117,13 +115,13 @@ class _NotificationPromptScreenState extends State<NotificationPromptScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundInfoLight,
+                  color: AppColors.backgroundInfo(context),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.info_outline_rounded,
-                        color: AppColors.textInfoLight, size: 18),
+                        color: AppColors.textInfo(context), size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -131,7 +129,7 @@ class _NotificationPromptScreenState extends State<NotificationPromptScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          color: AppColors.textInfoLight,
+                          color: AppColors.textInfo(context),
                         ),
                       ),
                     ),
@@ -187,8 +185,8 @@ class _StepProgress extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
             color: active
-                ? AppColors.textPrimaryLight
-                : const Color(0xFFE0DED8),
+                ? AppColors.textPrimary(context)
+                : AppColors.borderDisabled(context),
             borderRadius: BorderRadius.circular(2),
           ),
         );
@@ -373,23 +371,15 @@ class _SkipConfirmSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundPrimary(context),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD1CFC7),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const SizedBox(height: 24),
 
           // ── Dark teal illustration ─────────────────────────────────────
           Padding(
@@ -526,7 +516,7 @@ class _SkipConfirmSheet extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textPrimaryLight,
+                color: AppColors.textPrimary(context),
               ),
               textAlign: TextAlign.center,
             ),
@@ -542,7 +532,7 @@ class _SkipConfirmSheet extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: AppColors.textTertiaryLight,
+                color: AppColors.textTertiary(context),
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
