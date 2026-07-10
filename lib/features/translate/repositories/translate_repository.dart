@@ -27,12 +27,13 @@ class TranslateRepository {
     required String uid,
     required String text,
     required String targetLang,
+    String sourceLang = 'en',
   }) async {
     final FunctionResponse response;
     try {
       response = await _client.functions.invoke(
         'translate-phrase',
-        body: {'text': text, 'targetLang': targetLang},
+        body: {'text': text, 'sourceLang': sourceLang, 'targetLang': targetLang},
       );
     } on FunctionException catch (e) {
       final details = e.details;
@@ -52,6 +53,7 @@ class TranslateRepository {
       uid: uid,
       sourceText: text,
       targetLang: targetLang,
+      sourceLang: sourceLang,
       translation: Map<String, dynamic>.from(data),
     );
   }

@@ -27,12 +27,13 @@ class PhraseRepository {
     required String sourceText,
     required String targetLang,
     required Map<String, dynamic> translation,
+    String sourceLang = 'en',
   }) async {
     final row = await _phrases.insert({
       'user_id': uid,
       'source_text': sourceText,
       'translated_text': translation['translatedText'],
-      'source_lang': 'en',
+      'source_lang': sourceLang,
       'target_lang': targetLang,
       'register_note': translation['registerNote'],
       'category': translation['category'],

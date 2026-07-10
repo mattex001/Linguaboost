@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -11,18 +12,32 @@ import '../../core/constants/app_colors.dart';
 ///
 /// Idle: slow breathing glow + a soft float. Listening: faster pulse +
 /// energetic bars, so the button visibly comes alive without needing real
-/// microphone amplitude data. Scales down slightly on press for tactile
-/// feedback; pass `onTap: null` to disable (e.g. while a request is loading).
+/// microphone amplitude data. Pass `onTap: null` to disable (e.g. while a
+/// request is loading).
+///
+/// Two interaction modes:
+/// - Default (`growOnPress: false`): plain tap via [onTap], shrinks slightly
+///   on press for tactile feedback (e.g. the dashboard's quick-capture card,
+///   which just navigates rather than recording anything itself).
+/// - Press-and-hold (`growOnPress: true`): [onHoldStart] fires on press-down
+///   (with a haptic buzz) and [onHoldEnd] fires on release, growing instead
+///   of shrinking while held — the voice-message mental model.
 class GlowMicButton extends StatefulWidget {
   final bool listening;
   final VoidCallback? onTap;
   final double size;
+  final bool growOnPress;
+  final VoidCallback? onHoldStart;
+  final VoidCallback? onHoldEnd;
 
   const GlowMicButton({
     super.key,
     required this.listening,
     required this.onTap,
     this.size = 64,
+    this.growOnPress = false,
+    this.onHoldStart,
+    this.onHoldEnd,
   });
 
   @override
@@ -40,7 +55,8 @@ class _GlowMicButtonState extends State<GlowMicButton> {
   Widget build(BuildContext context) {
     final listening = widget.listening;
     final size = widget.size;
-    final enabled = widget.onTap != null;
+    final enabled =
+        widget.growOnPress ? widget.onHoldStart != null : widget.onTap != null;
 
     final floatDuration = listening ? 1400.ms : 2600.ms;
     final floatRange = listening ? 5.0 : 3.5;
@@ -49,14 +65,52 @@ class _GlowMicButtonState extends State<GlowMicButton> {
     final pulseMax = listening ? 1.2 : 1.1;
     final rimRotateDuration = listening ? 2000.ms : 4500.ms;
 
-    final button = GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
-      onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedScale(
-        scale: _pressed ? 0.88 : 1.0,
+    // Press-and-hold uses a raw Listener rather than GestureDetector taps:
+    // tap recognizers compete in the gesture arena with the surrounding
+    // scroll view, so finger drift beyond the touch slop while holding
+    // (inevitable when speaking for a few seconds) would fire onTapCancel
+    // and cut the recording mid-sentence. Raw pointer events can't be
+    // stolen by the scroll arena.
+    final Widget Function(Widget child) wrapGesture;
+    if (widget.growOnPress) {
+      wrapGesture = (child) => Listener(
+            onPointerDown: enabled
+                ? (_) {
+                    HapticFeedback.mediumImpact();
+                    widget.onHoldStart?.call();
+                    setState(() => _pressed = true);
+                  }
+                : null,
+            onPointerUp: enabled
+                ? (_) {
+                    widget.onHoldEnd?.call();
+                    setState(() => _pressed = false);
+                  }
+                : null,
+            onPointerCancel: enabled
+                ? (_) {
+                    widget.onHoldEnd?.call();
+                    setState(() => _pressed = false);
+                  }
+                : null,
+            behavior: HitTestBehavior.opaque,
+            child: child,
+          );
+    } else {
+      wrapGesture = (child) => GestureDetector(
+            onTap: widget.onTap,
+            onTapDown:
+                enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
+            onTapCancel:
+                enabled ? () => setState(() => _pressed = false) : null,
+            behavior: HitTestBehavior.opaque,
+            child: child,
+          );
+    }
+
+    final button = wrapGesture(AnimatedScale(
+        scale: _pressed ? (widget.growOnPress ? 1.18 : 0.88) : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: Opacity(

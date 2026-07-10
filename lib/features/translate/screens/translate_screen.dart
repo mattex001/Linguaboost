@@ -36,6 +36,23 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
   /// speaker goes quiet and auto-plays the translation.
   bool _autoVoice = false;
 
+  /// True while the record button is physically held. Guards the first-use
+  /// race where the mic-permission dialog appears mid-hold: the user lifts
+  /// their finger to tap "Allow", and without this check capture would then
+  /// start with nobody holding the button (nothing would ever stop it).
+  bool _holdActive = false;
+
+  /// When the current capture began — used to enforce a minimum recording
+  /// window, since stopping Android's recognizer before it has finished
+  /// starting throws ERROR_CLIENT (the "quick tap" failure).
+  DateTime? _captureStartedAt;
+
+  /// Auto-restarts consumed during the current hold. Android's recognizer
+  /// gives up on its own (speech timeout / no match) regardless of the
+  /// pause setting; while the finger is still down we quietly restart it,
+  /// but bounded, so a broken recognizer can't loop forever.
+  int _holdRestarts = 0;
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +68,7 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
     super.dispose();
   }
 
-  Future<void> _startVoiceCapture() async {
+  Future<void> _startVoiceCapture({bool holdMode = false}) async {
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
       if (!mounted) return;
@@ -63,19 +80,76 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
       );
       return;
     }
+    // The permission dialog may have interrupted the hold — don't start a
+    // capture nobody is holding.
+    if (holdMode && !_holdActive) return;
+    final user = ref.read(userSnapshotProvider);
+    final sourceLanguage =
+        targetLanguageForCode(user?.sourceLanguage ?? 'en') ??
+        kTargetLanguages.last;
     _autoVoice = true;
     _inputController.clear();
-    await ref.read(speechInputProvider.notifier).start();
+    _captureStartedAt = DateTime.now();
+    await ref.read(speechInputProvider.notifier).start(
+          localeId: sourceLanguage.ttsLocale.replaceAll('-', '_'),
+          // Push-to-talk: release is the stop signal, so a mid-sentence
+          // pause must not auto-stop the capture. Hands-free keeps the
+          // short silence timeout.
+          pauseFor: holdMode
+              ? const Duration(seconds: 30)
+              : const Duration(milliseconds: 1100),
+        );
   }
 
-  Future<void> _toggleMic() async {
-    final speech = ref.read(speechInputProvider);
-    if (speech.listening) {
-      // Manual stop still flows into auto-translate via the listener.
-      await ref.read(speechInputProvider.notifier).stop();
-      return;
+  Future<void> _updateSourceLanguage(String code) async {
+    final uid = ref.read(authUserIdProvider);
+    if (uid == null) return;
+    await ref.read(userRepositoryProvider).updateSourceLanguage(uid, code);
+  }
+
+  Future<void> _swapLanguages({
+    required String currentSourceCode,
+    required String currentTargetCode,
+  }) async {
+    final uid = ref.read(authUserIdProvider);
+    if (uid == null) return;
+    await ref
+        .read(userRepositoryProvider)
+        .swapLanguages(
+          uid,
+          newSourceCode: currentTargetCode,
+          newTargetCode: currentSourceCode,
+        );
+  }
+
+  // Press-and-hold record gesture: press down starts listening, release
+  // stops it — auto-translate is still driven by the `ref.listen` block
+  // below reacting to `listening` flipping false.
+  Future<void> _onRecordPressStart() async {
+    _holdActive = true;
+    _holdRestarts = 0;
+    if (ref.read(speechInputProvider).listening) return;
+    await _startVoiceCapture(holdMode: true);
+  }
+
+  Future<void> _onRecordPressEnd() async {
+    _holdActive = false;
+    if (!ref.read(speechInputProvider).listening) return;
+
+    // Stopping Android's recognizer before it has fully started throws
+    // ERROR_CLIENT (quick taps). Let very short captures run out a minimum
+    // window before stopping.
+    const minWindow = Duration(milliseconds: 900);
+    final startedAt = _captureStartedAt;
+    final elapsed = startedAt == null
+        ? minWindow
+        : DateTime.now().difference(startedAt);
+    if (elapsed < minWindow) {
+      await Future.delayed(minWindow - elapsed);
+      if (!mounted || _holdActive) return; // re-pressed meanwhile
+      if (!ref.read(speechInputProvider).listening) return;
     }
-    await _startVoiceCapture();
+    await ref.read(speechInputProvider.notifier).stop();
   }
 
   Future<void> _translate({bool speakResult = false}) async {
@@ -84,6 +158,7 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
 
     final user = ref.read(userSnapshotProvider);
     final targetLang = user?.targetLanguage ?? kTargetLanguages.first.code;
+    final sourceLang = user?.sourceLanguage ?? 'en';
 
     setState(() => _error = null);
     FocusScope.of(context).unfocus();
@@ -92,7 +167,11 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
     try {
       final phrase = await ref
           .read(translateControllerProvider.notifier)
-          .translate(text: text, targetLang: targetLang);
+          .translate(
+            text: text,
+            targetLang: targetLang,
+            sourceLang: sourceLang,
+          );
 
       // Streak: translating counts as today's learning action
       ref.read(dailyProgressProvider.notifier).recordLearningAction();
@@ -104,6 +183,12 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
         ref
             .read(pronunciationPlayerProvider)
             .speak(phrase.translatedText, phrase.targetLang);
+      } else {
+        // Typed flow: warm the audio while the sheet opens so the play
+        // button responds instantly. (Voice flow's speak() already caches.)
+        ref
+            .read(pronunciationPlayerProvider)
+            .prefetch(phrase.translatedText, phrase.targetLang);
       }
       PhraseDetailSheet.show(context, phrase: phrase);
     } on TranslationException catch (e) {
@@ -125,6 +210,9 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
     final user = ref.watch(userSnapshotProvider);
     final language =
         targetLanguageForCode(user?.targetLanguage) ?? kTargetLanguages.first;
+    final sourceLanguage =
+        targetLanguageForCode(user?.sourceLanguage ?? 'en') ??
+        kTargetLanguages.last;
     final loading = translateState.isLoading;
 
     // Home-tab mic handoff: start hands-free capture as soon as this tab
@@ -148,6 +236,42 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
     // hands-free mode, translation starts automatically and the result is
     // spoken aloud (FR: speak → translate → play).
     ref.listen<SpeechInputState>(speechInputProvider, (prev, next) {
+      if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
+        // Android's recognizer routinely bails on its own: speech_timeout
+        // (~5s of silence, regardless of our pause setting), no_match
+        // (heard nothing usable), client/busy (stopped mid-startup or
+        // restarted too fast). None of these deserve a raw error code.
+        final err = next.errorMessage!.toLowerCase();
+        final transient = err.contains('speech_timeout') ||
+            err.contains('no_match') ||
+            err.contains('client') ||
+            err.contains('busy');
+        if (transient) {
+          if (_holdActive && _holdRestarts < 2) {
+            // Finger still down — quietly restart the capture. Brief delay:
+            // an immediate re-listen after an error reports error_busy.
+            _holdRestarts++;
+            Future.delayed(const Duration(milliseconds: 250), () {
+              if (mounted && _holdActive) _startVoiceCapture(holdMode: true);
+            });
+          } else if (!_holdActive && next.transcript.trim().isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    "Didn't catch that — hold the mic, speak, then release."),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Voice input error: ${next.errorMessage}'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
       if (next.listening && next.transcript.isNotEmpty) {
         _inputController.text = next.transcript;
         _inputController.selection = TextSelection.fromPosition(
@@ -157,10 +281,19 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
       final stoppedListening = (prev?.listening ?? false) && !next.listening;
       if (stoppedListening && _autoVoice) {
         _autoVoice = false;
-        if (next.transcript.trim().isNotEmpty && !loading) {
-          _inputController.text = next.transcript;
-          _translate(speakResult: true);
-        }
+        // speech_to_text's stop() only awaits the platform ack that
+        // recording stopped — the true final transcript (which can still
+        // differ from the last partial) lands a beat later via onResult.
+        // A short grace delay lets it settle before we read the transcript
+        // and translate, instead of racing a possibly-stale partial.
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!mounted) return;
+          final transcript = ref.read(speechInputProvider).transcript.trim();
+          if (transcript.isNotEmpty && !ref.read(translateControllerProvider).isLoading) {
+            _inputController.text = transcript;
+            _translate(speakResult: true);
+          }
+        });
       }
     });
 
@@ -225,25 +358,24 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                     ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stack(
                   children: [
                     TextField(
                       controller: _inputController,
-                      maxLines: 5,
-                      minLines: 3,
+                      maxLines: 7,
+                      minLines: 5,
                       maxLength: AppConstants.maxTranslationInputChars,
                       textCapitalization: TextCapitalization.sentences,
                       style: GoogleFonts.googleSans(
-                        fontSize: 16,
+                        fontSize: 19,
                         color: AppColors.textPrimary(context),
                         height: 1.5,
                       ),
                       decoration: InputDecoration(
                         hintText:
-                            'Type or paste what you need to say in English…',
+                            'Type or paste what you need to say in ${sourceLanguage.label}…',
                         hintStyle: GoogleFonts.googleSans(
-                          fontSize: 15,
+                          fontSize: 19,
                           color: AppColors.textTertiary(context),
                         ),
                         counterText: '',
@@ -253,22 +385,20 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                           16,
                           14,
                           16,
-                          4,
+                          28,
                         ),
                       ),
                     ),
 
                     // ── Character counter ─────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${_inputController.text.characters.length}/${AppConstants.maxTranslationInputChars}',
-                          style: GoogleFonts.googleSans(
-                            fontSize: 12,
-                            color: AppColors.textTertiary(context),
-                          ),
+                    Positioned(
+                      right: 16,
+                      bottom: 10,
+                      child: Text(
+                        '${_inputController.text.characters.length}/${AppConstants.maxTranslationInputChars}',
+                        style: GoogleFonts.googleSans(
+                          fontSize: 12,
+                          color: AppColors.textTertiary(context),
                         ),
                       ),
                     ),
@@ -340,7 +470,10 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
               Center(
                 child: GlowMicButton(
                   listening: speech.listening,
-                  onTap: loading ? null : _toggleMic,
+                  onTap: null,
+                  growOnPress: true,
+                  onHoldStart: loading ? null : _onRecordPressStart,
+                  onHoldEnd: loading ? null : _onRecordPressEnd,
                   size: 56,
                 ),
               ),
@@ -348,7 +481,7 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
               Center(
                 child: speech.listening
                     ? Text(
-                            'Listening…',
+                            'Listening… release to translate',
                             style: GoogleFonts.googleSans(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -358,15 +491,126 @@ class _TranslateScreenState extends ConsumerState<TranslateScreen> {
                           .animate(onPlay: (c) => c.repeat(reverse: true))
                           .fadeIn(duration: 600.ms)
                     : Text(
-                        'Tap the mic to speak',
+                        'Hold to speak',
                         style: GoogleFonts.googleSans(
                           fontSize: 13,
                           color: AppColors.textTertiary(context),
                         ),
                       ),
               ),
+
+              const SizedBox(height: 24),
+
+              // ── Source ⇄ target language swap ─────────────────────────
+              Center(
+                child: _LanguageSwapBar(
+                  source: sourceLanguage,
+                  target: language,
+                  onTapSource: () => showLanguageSwitcherSheet(
+                    context,
+                    currentCode: sourceLanguage.code,
+                    onSelect: _updateSourceLanguage,
+                  ),
+                  onTapTarget: () => showLanguageSwitcherSheet(
+                    context,
+                    currentCode: language.code,
+                    onSelect: (code) =>
+                        switchActiveLanguage(context, ref, code),
+                  ),
+                  onSwap: () => _swapLanguages(
+                    currentSourceCode: sourceLanguage.code,
+                    currentTargetCode: language.code,
+                  ),
+                ),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Source ⇄ target language swap bar ─────────────────────────────────────────
+
+class _LanguageSwapBar extends StatelessWidget {
+  final TargetLanguage source;
+  final TargetLanguage target;
+  final VoidCallback onTapSource;
+  final VoidCallback onTapTarget;
+  final VoidCallback onSwap;
+
+  const _LanguageSwapBar({
+    required this.source,
+    required this.target,
+    required this.onTapSource,
+    required this.onTapTarget,
+    required this.onSwap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundPrimary(context),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.borderSecondary(context)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LanguageChip(language: source, onTap: onTapSource),
+          GestureDetector(
+            onTap: onSwap,
+            child: Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: AppColors.brandPrimary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.swap_horiz,
+                size: 18,
+                color: AppColors.brandPrimary,
+              ),
+            ),
+          ),
+          _LanguageChip(language: target, onTap: onTapTarget),
+        ],
+      ),
+    );
+  }
+}
+
+class _LanguageChip extends StatelessWidget {
+  final TargetLanguage language;
+  final VoidCallback onTap;
+
+  const _LanguageChip({required this.language, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(language.flag, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Text(
+              language.label,
+              style: GoogleFonts.googleSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary(context),
+              ),
+            ),
+          ],
         ),
       ),
     );

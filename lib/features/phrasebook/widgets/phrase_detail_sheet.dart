@@ -139,6 +139,46 @@ class PhraseDetailSheet extends ConsumerWidget {
                       ),
                     ),
 
+                    // ── Offline-pending notice ───────────────────────────────
+                    if (phrase.isPendingOffline) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundWarning(context),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.borderWarning(context),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.cloud_off_rounded,
+                              size: 18,
+                              color: AppColors.textWarning(context),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Translated offline — a quick device '
+                                'translation without the usual notes. It '
+                                'upgrades automatically when you\'re back '
+                                'online.',
+                                style: GoogleFonts.googleSans(
+                                  fontSize: 13,
+                                  color: AppColors.textWarning(context),
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // ── Low-confidence warning (FR-1.6) ──────────────────────
                     if (lowConfidence) ...[
                       const SizedBox(height: 16),

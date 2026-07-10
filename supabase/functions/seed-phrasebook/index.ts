@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
   try {
     const anthropic = getAnthropicClient();
     const translations = await Promise.all(
-      SEED_PHRASES.map((phrase) => translateOne(anthropic, phrase, targetLang)),
+      SEED_PHRASES.map((phrase) => translateOne(anthropic, phrase, "en", targetLang)),
     );
 
     const rows = translations.map((t, i) => ({

@@ -85,6 +85,11 @@ class Phrase {
   final ReviewState review;
   final DateTime createdAt;
 
+  /// True for a phrase translated on-device while offline — it exists only
+  /// in local storage (no Supabase row yet) and carries just a plain
+  /// translation until the reconnect sweep upgrades it. Never serialized.
+  final bool isPendingOffline;
+
   const Phrase({
     required this.id,
     required this.userId,
@@ -103,6 +108,7 @@ class Phrase {
     this.ipa,
     required this.review,
     required this.createdAt,
+    this.isPendingOffline = false,
   });
 
   factory Phrase.fromJson(Map<String, dynamic> json) {
@@ -146,4 +152,31 @@ class Phrase {
   }
 
   bool get isDue => review.isDue;
+
+  /// Round-trips with [Phrase.fromJson] — used for the offline phrasebook
+  /// cache, not for Supabase writes (the repository builds its own insert
+  /// maps). [isPendingOffline] is deliberately not serialized.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'user_id': userId,
+        'source_text': sourceText,
+        'translated_text': translatedText,
+        'source_lang': sourceLang,
+        'target_lang': targetLang,
+        'register_note': registerNote,
+        'category': category.id,
+        'confidence': confidence,
+        'confidence_note': confidenceNote,
+        'seeded': seeded,
+        'vocab_breakdown': vocabBreakdown.map((v) => v.toJson()).toList(),
+        'grammar_note': grammarNote,
+        'pronunciation': {'phonetic': phonetic, 'ipa': ipa},
+        'ease_factor': review.easeFactor,
+        'interval_days': review.intervalDays,
+        'repetitions': review.repetitions,
+        'next_review_at': review.nextReviewAt.toUtc().toIso8601String(),
+        'last_result': review.lastResult,
+        'last_reviewed_at': review.lastReviewedAt?.toUtc().toIso8601String(),
+        'created_at': createdAt.toUtc().toIso8601String(),
+      };
 }

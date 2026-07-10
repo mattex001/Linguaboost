@@ -43,7 +43,7 @@ class _IdleView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dueCount = ref.watch(dueCountProvider);
+    final dueCount = ref.watch(reviewsRemainingTodayProvider);
     final caughtUp = dueCount == 0;
     final activeLanguage = ref.watch(activeLanguageCodeProvider);
 

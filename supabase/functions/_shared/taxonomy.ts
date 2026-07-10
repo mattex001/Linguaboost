@@ -45,4 +45,5 @@ export const SUPPORTED_LANGS: Record<string, string> = {
   hi: "Hindi",
   ja: "Japanese",
   ko: "Korean",
+  en: "English",
 };

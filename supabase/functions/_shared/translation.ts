@@ -67,19 +67,20 @@ export const translationSchema = {
   additionalProperties: false,
 } as const;
 
-export function buildSystemPrompt(targetLang: string): string {
+export function buildSystemPrompt(sourceLang: string, targetLang: string): string {
   const language = SUPPORTED_LANGS[targetLang];
+  const sourceLanguage = SUPPORTED_LANGS[sourceLang];
   const taxonomy = CATEGORY_IDS
     .map((id) => `- ${id}: ${CATEGORY_DESCRIPTIONS[id]}`)
     .join("\n");
 
-  return `You are an expert ${language} translator and language coach for people relocating abroad. Given an English sentence, produce:
+  return `You are an expert ${language} translator and language coach for people relocating abroad. Given a ${sourceLanguage} sentence, produce:
 
 - translatedText: the most natural way a native speaker would say it in ${language}. Prefer everyday phrasing over literal translation.
 - registerNote: one sentence on formality and when to use it (e.g. "Neutral — fine with strangers; use the formal form in official settings").
-- vocabBreakdown: the 2-6 most useful words or chunks from the translation, each with a short English meaning (include gender/part of speech where relevant).
-- grammarNote: one or two sentences explaining the key grammatical structure, written for a beginner.
-- pronunciation: phonetic = an intuitive English-friendly respelling with stressed syllables in CAPS; ipa = the IPA transcription.
+- vocabBreakdown: the 2-6 most useful words or chunks from the translation, each with a short ${sourceLanguage} meaning (include gender/part of speech where relevant).
+- grammarNote: one or two sentences explaining the key grammatical structure, written for a beginner, in ${sourceLanguage}.
+- pronunciation: phonetic = an intuitive ${sourceLanguage}-friendly respelling with stressed syllables in CAPS; ipa = the IPA transcription.
 - category: exactly one taxonomy id from the list below that best fits the sentence's real-world situation.
 - confidence: "high" when you are sure the translation is natural and correct. Use "medium" or "low" when the input is ambiguous, idiomatic, or you are unsure of the natural rendering — and explain why in confidenceNote rather than guessing confidently. confidenceNote is null when confidence is "high".
 
@@ -96,12 +97,13 @@ export function getAnthropicClient(): Anthropic {
 export async function translateOne(
   client: Anthropic,
   text: string,
+  sourceLang: string,
   targetLang: string,
 ): Promise<TranslationPayload> {
   const response = await client.messages.create({
     model: TRANSLATE_MODEL,
     max_tokens: 1500,
-    system: buildSystemPrompt(targetLang),
+    system: buildSystemPrompt(sourceLang, targetLang),
     output_config: {
       format: { type: "json_schema", schema: translationSchema },
     },

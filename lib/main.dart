@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/supabase_config.dart';
+import 'core/providers/connectivity_provider.dart';
 import 'core/providers/storage_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/user_provider.dart';
+import 'features/translate/providers/translate_provider.dart';
+import 'features/translate/services/offline_translation_service.dart';
 import 'shared/models/user_model.dart';
 import 'core/router/app_router.dart';
 import 'core/services/local_storage_service.dart';
@@ -70,7 +73,9 @@ class LinguaBoostApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    // When user data changes: reschedule the daily review reminder
+    // When user data changes: reschedule the daily review reminder, and
+    // opportunistically prefetch the offline translation models for the
+    // active language pair (no-ops when unchanged or already downloaded).
     ref.listen<AsyncValue<UserModel?>>(currentUserProvider, (_, next) {
       next.whenData((user) {
         if (user == null) {
@@ -78,7 +83,27 @@ class LinguaBoostApp extends ConsumerWidget {
           return;
         }
         NotificationService.instance.scheduleReviewReminder(user);
+        final target = user.targetLanguage;
+        if (target != null) {
+          OfflineTranslationService.instance
+              .ensureModelsDownloaded(user.sourceLanguage, target);
+        }
       });
+    });
+
+    // When connectivity returns: replay offline-pending phrases through the
+    // full translation pipeline and clear them from the local queue.
+    ref.listen<AsyncValue<bool>>(isOnlineProvider, (prev, next) {
+      final cameOnline = next.value == true && prev?.value != true;
+      if (!cameOnline) return;
+      final uid = ref.read(authUserIdProvider);
+      if (uid == null) return;
+      PendingTranslationSweeper.instance
+          .sweep(
+            uid: uid,
+            repository: ref.read(translateRepositoryProvider),
+          )
+          .then((_) => ref.invalidate(pendingTranslationsProvider));
     });
 
     // Resolve effective brightness so system nav-bar icons stay legible

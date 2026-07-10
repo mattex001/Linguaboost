@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return jsonResponse({ error: "Unauthorized" }, 401);
 
-  let body: { text?: unknown; targetLang?: unknown };
+  let body: { text?: unknown; sourceLang?: unknown; targetLang?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -34,11 +34,21 @@ Deno.serve(async (req) => {
   }
 
   const text = typeof body.text === "string" ? body.text.trim() : "";
+  const sourceLang =
+    typeof body.sourceLang === "string" && body.sourceLang.length > 0
+      ? body.sourceLang
+      : "en";
   const targetLang = typeof body.targetLang === "string" ? body.targetLang : "";
 
   if (text.length < 1 || text.length > 500) {
     return jsonResponse(
       { error: "text must be a string of 1-500 characters" },
+      400,
+    );
+  }
+  if (!(sourceLang in SUPPORTED_LANGS)) {
+    return jsonResponse(
+      { error: `sourceLang must be one of: ${Object.keys(SUPPORTED_LANGS).join(", ")}` },
       400,
     );
   }
@@ -48,9 +58,15 @@ Deno.serve(async (req) => {
       400,
     );
   }
+  if (sourceLang === targetLang) {
+    return jsonResponse(
+      { error: "sourceLang and targetLang must be different" },
+      400,
+    );
+  }
 
   try {
-    const result = await translateOne(getAnthropicClient(), text, targetLang);
+    const result = await translateOne(getAnthropicClient(), text, sourceLang, targetLang);
     return jsonResponse(result);
   } catch (err) {
     console.error("translate-phrase failed:", err);
