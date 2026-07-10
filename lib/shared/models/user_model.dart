@@ -4,6 +4,9 @@ class UserModel {
   final String? name;
   final String? email;
   final String? targetLanguage; // ISO code, null until onboarding completes
+  final String sourceLanguage; // ISO code of the user's own spoken language
+  final String? voiceName; // device TTS voice name, null = OS default
+  final String? voiceLocale; // locale the voice was picked for, e.g. 'it-IT'
   final String learningGoal;
   final String notificationStartTime; // HH:mm
   final String notificationEndTime; // HH:mm
@@ -15,12 +18,18 @@ class UserModel {
   final DateTime? lastActiveDate;
   final int onboardingStep;
   final List<String> activeDates; // YYYY-MM-DD keys
+  final int dailyReviewLimit; // 2-10 phrases served per day
+  final int reviewsCompletedToday;
+  final DateTime? reviewsCompletedDate; // date the counter is valid for
 
   const UserModel({
     required this.id,
     this.name,
     this.email,
     this.targetLanguage,
+    this.sourceLanguage = 'en',
+    this.voiceName,
+    this.voiceLocale,
     this.learningGoal = '',
     this.notificationStartTime = '08:00',
     this.notificationEndTime = '20:00',
@@ -32,6 +41,9 @@ class UserModel {
     this.lastActiveDate,
     this.onboardingStep = 0,
     this.activeDates = const [],
+    this.dailyReviewLimit = 5,
+    this.reviewsCompletedToday = 0,
+    this.reviewsCompletedDate,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +52,9 @@ class UserModel {
       name: json['name'] as String?,
       email: json['email'] as String?,
       targetLanguage: json['target_language'] as String?,
+      sourceLanguage: (json['source_language'] as String?) ?? 'en',
+      voiceName: json['voice_name'] as String?,
+      voiceLocale: json['voice_locale'] as String?,
       learningGoal: (json['learning_goal'] as String?) ?? '',
       notificationStartTime:
           (json['notification_start'] as String?) ?? '08:00',
@@ -55,6 +70,10 @@ class UserModel {
               ?.map((e) => e.toString())
               .toList() ??
           const [],
+      dailyReviewLimit: (json['daily_review_limit'] as num?)?.toInt() ?? 5,
+      reviewsCompletedToday:
+          (json['reviews_completed_today'] as num?)?.toInt() ?? 0,
+      reviewsCompletedDate: _parseDate(json['reviews_completed_date']),
     );
   }
 
@@ -62,6 +81,9 @@ class UserModel {
         'name': name,
         'email': email,
         'target_language': targetLanguage,
+        'source_language': sourceLanguage,
+        'voice_name': voiceName,
+        'voice_locale': voiceLocale,
         'learning_goal': learningGoal,
         'notification_start': notificationStartTime,
         'notification_end': notificationEndTime,
@@ -75,6 +97,11 @@ class UserModel {
             : null,
         'onboarding_step': onboardingStep,
         'active_dates': activeDates,
+        'daily_review_limit': dailyReviewLimit,
+        'reviews_completed_today': reviewsCompletedToday,
+        'reviews_completed_date': reviewsCompletedDate != null
+            ? _dateKey(reviewsCompletedDate!)
+            : null,
       };
 
   UserModel copyWith({
@@ -82,6 +109,9 @@ class UserModel {
     String? name,
     String? email,
     String? targetLanguage,
+    String? sourceLanguage,
+    String? voiceName,
+    String? voiceLocale,
     String? learningGoal,
     String? notificationStartTime,
     String? notificationEndTime,
@@ -93,12 +123,18 @@ class UserModel {
     DateTime? lastActiveDate,
     int? onboardingStep,
     List<String>? activeDates,
+    int? dailyReviewLimit,
+    int? reviewsCompletedToday,
+    DateTime? reviewsCompletedDate,
   }) =>
       UserModel(
         id: id ?? this.id,
         name: name ?? this.name,
         email: email ?? this.email,
         targetLanguage: targetLanguage ?? this.targetLanguage,
+        sourceLanguage: sourceLanguage ?? this.sourceLanguage,
+        voiceName: voiceName ?? this.voiceName,
+        voiceLocale: voiceLocale ?? this.voiceLocale,
         learningGoal: learningGoal ?? this.learningGoal,
         notificationStartTime:
             notificationStartTime ?? this.notificationStartTime,
@@ -111,6 +147,10 @@ class UserModel {
         lastActiveDate: lastActiveDate ?? this.lastActiveDate,
         onboardingStep: onboardingStep ?? this.onboardingStep,
         activeDates: activeDates ?? this.activeDates,
+        dailyReviewLimit: dailyReviewLimit ?? this.dailyReviewLimit,
+        reviewsCompletedToday:
+            reviewsCompletedToday ?? this.reviewsCompletedToday,
+        reviewsCompletedDate: reviewsCompletedDate ?? this.reviewsCompletedDate,
       );
 
   static DateTime? _parseDate(dynamic value) {

@@ -42,8 +42,28 @@ class UserRepository {
   Future<void> updateTargetLanguage(String uid, String code) =>
       updateUser(uid, {'target_language': code});
 
+  Future<void> updateSourceLanguage(String uid, String code) =>
+      updateUser(uid, {'source_language': code});
+
+  Future<void> swapLanguages(
+    String uid, {
+    required String newSourceCode,
+    required String newTargetCode,
+  }) =>
+      updateUser(uid, {
+        'source_language': newSourceCode,
+        'target_language': newTargetCode,
+      });
+
   Future<void> updateLearningGoal(String uid, String goal) =>
       updateUser(uid, {'learning_goal': goal});
+
+  Future<void> updateVoice(
+    String uid, {
+    required String name,
+    required String locale,
+  }) =>
+      updateUser(uid, {'voice_name': name, 'voice_locale': locale});
 
   // ── Streak ─────────────────────────────────────────────────────────────────
 
@@ -85,6 +105,31 @@ class UserRepository {
     if (user.activeDates.contains(todayKey)) return;
     await updateUser(uid, {
       'active_dates': [...user.activeDates, todayKey],
+    });
+  }
+
+  // ── Daily review cap ───────────────────────────────────────────────────────
+
+  Future<void> updateDailyReviewLimit(String uid, int limit) =>
+      updateUser(uid, {'daily_review_limit': limit});
+
+  /// Counts one phrase toward today's review cap. If the stored counter is
+  /// from a previous day it restarts at 1 — same read-compare-write shape as
+  /// [recordStreakDay].
+  Future<void> incrementReviewsCompletedToday(String uid) async {
+    final user = await getUser(uid);
+    if (user == null) return;
+
+    final today = DateTime.now();
+    final date = user.reviewsCompletedDate;
+    final isToday = date != null &&
+        date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day;
+
+    await updateUser(uid, {
+      'reviews_completed_today': isToday ? user.reviewsCompletedToday + 1 : 1,
+      'reviews_completed_date': _todayKey(),
     });
   }
 

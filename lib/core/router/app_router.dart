@@ -5,7 +5,9 @@ import '../providers/auth_provider.dart';
 import '../services/local_storage_service.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/personalization/screens/personalization_intro_screen.dart';
+import '../../features/personalization/screens/name_screen.dart';
 import '../../features/personalization/screens/target_language_screen.dart';
+import '../../features/personalization/screens/voice_selection_screen.dart';
 import '../../features/personalization/screens/what_is_your_goal_screen.dart';
 import '../../features/personalization/screens/just_a_minute_screen.dart';
 import '../../features/personalization/screens/notification_motivation_screen.dart';
@@ -37,7 +39,9 @@ class AppRoutes {
 
   // Personalization flow
   static const String personalization = '/personalization';
+  static const String personalizationName = '/personalization/name';
   static const String personalizationLanguage = '/personalization/language';
+  static const String personalizationVoice = '/personalization/voice';
   static const String personalizationGoal = '/personalization/goal';
   static const String personalizationJustAMinute = '/personalization/just-a-minute';
   static const String personalizationNotifications = '/personalization/notifications';
@@ -47,6 +51,8 @@ class AppRoutes {
   static const String profileEditLanguage = '/profile/edit/language';
   static const String profileEditGoal = '/profile/edit/goal';
   static const String profileEditName = '/profile/edit/name';
+  static const String profileEditVoice = '/profile/edit/voice';
+  static const String profileEditReviewLimit = '/profile/edit/review-limit';
   static const String profileNotifications = '/profile/notifications';
   static const String profileHelpFaq = '/profile/help';
   static const String profilePrivacyPolicy = '/profile/privacy';
@@ -133,8 +139,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PersonalizationIntroScreen(),
       ),
       GoRoute(
+        path: AppRoutes.personalizationName,
+        builder: (context, state) => const NameScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.personalizationLanguage,
         builder: (context, state) => const TargetLanguageScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.personalizationVoice,
+        builder: (context, state) => VoiceSelectionScreen(
+          targetLanguageCode: state.extra as String?,
+        ),
       ),
       GoRoute(
         path: AppRoutes.personalizationGoal,
@@ -165,6 +181,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.profileEditName,
         builder: (context, state) => const EditNameScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileEditVoice,
+        builder: (context, state) => const EditVoiceScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileEditReviewLimit,
+        builder: (context, state) => const EditDailyReviewLimitScreen(),
       ),
       GoRoute(
         path: AppRoutes.profileNotifications,

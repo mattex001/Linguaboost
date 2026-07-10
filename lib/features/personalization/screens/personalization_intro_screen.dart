@@ -87,7 +87,7 @@ class PersonalizationIntroScreen extends ConsumerWidget {
                   const SizedBox(height: 37),
                   PersonalizationPrimaryButton(
                     label: 'Continue',
-                    onTap: () => context.push(AppRoutes.personalizationLanguage),
+                    onTap: () => context.push(AppRoutes.personalizationName),
                   ),
                 ],
               ),

@@ -34,7 +34,7 @@ class _TargetLanguageScreenState extends ConsumerState<TargetLanguageScreen> {
         await ref.read(userRepositoryProvider).updateTargetLanguage(uid, code);
       }
       if (!mounted) return;
-      context.push(AppRoutes.personalizationGoal);
+      context.push(AppRoutes.personalizationVoice, extra: code);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
